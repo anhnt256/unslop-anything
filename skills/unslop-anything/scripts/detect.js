@@ -62,14 +62,23 @@ function hexToHsl(hex) {
 }
 
 // Six-digit hex colors in a snippet: #RRGGBB, 0xFFRRGGBB, Color(0xRRGGBB),
-// and #AARRGGBB in Android XML.
+// and #AARRGGBB in Android XML. #RRGGBBAA drops its alpha, and the short
+// forms expand (#RGB -> #RRGGBB, #RGBA -> #RRGGBB) so alpha and short
+// colors are read the same way as #RRGGBB. 0xRRGGBB is read too, after the
+// 0xFF form, so an eight-digit 0xFFRRGGBB is never misread as 0xFFRRGG.
 function hexColors(snippet, stack) {
   const out = [];
   const re = stack === "xml"
-    ? /#(?:[0-9a-fA-F]{2})?([0-9a-fA-F]{6})\b|0x[fF]{2}([0-9a-fA-F]{6})\b/g
-    : /#([0-9a-fA-F]{6})\b|0x[fF]{2}([0-9a-fA-F]{6})\b/g;
+    ? /#(?:[0-9a-fA-F]{2})?([0-9a-fA-F]{6})\b|0x[fF]{2}([0-9a-fA-F]{6})\b|0x([0-9a-fA-F]{6})\b/g
+    : /#([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})\b|0x[fF]{2}([0-9a-fA-F]{6})\b|0x([0-9a-fA-F]{6})\b/g;
   let m;
-  while ((m = re.exec(snippet))) out.push((m[1] || m[2]).toUpperCase());
+  while ((m = re.exec(snippet))) {
+    let hex = m[1] || m[2] || m[3];
+    if (hex.length === 8) hex = hex.slice(0, 6);
+    else if (hex.length === 4) hex = hex.slice(0, 3).split("").map((c) => c + c).join("");
+    else if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("");
+    out.push(hex.toUpperCase());
+  }
   return out;
 }
 
@@ -632,7 +641,10 @@ const rules = [
       // `all` may sit anywhere in the list, not just first:
       // `transition: color .2s, all .3s` counts, but a property name that
       // merely starts with `all` (e.g. `all-in-one`) does not.
-      const first = matches(/\btransition-all\b|transition(?:-property)?:[^;{}]*?(?<![\w-])all(?![\w-])/, code).next();
+      // In a CSS-in-JS value the scan stops at the closing quote, so
+      // `pointerEvents: "all"` later in the same style object is not read
+      // as part of `transition: "opacity .2s"`.
+      const first = matches(/\btransition-all\b|transition(?:-property)?:\s*["'`]?[^;{}"'`]*?(?<![\w-])all(?![\w-])/, code).next();
       return first.done ? [] : [first.value.index];
     },
   },
@@ -644,7 +656,7 @@ const rules = [
     message: "Cards that grow on hover.",
     fix: "Show hover with a quick color or surface change. Keep scale for a small press-down on buttons.",
     find({ code }) {
-      return [...matches(/\b(?:group-)?hover:(?:-translate-y-\d|scale-1(?:0[2-9]|[1-9]\d))\b|:hover\s*\{[^}]*transform:\s*scale\(1\.(?:0[2-9]|[1-9])/, code)].map((m) => m.index);
+      return [...matches(/\b(?:group-)?hover:(?:-translate-y-\d|scale-1(?:0[2-9]|[1-9]\d)\b|scale-\[(?:1\.(?:0[2-9]\d*|[1-9]\d*)|[2-9]\d*(?:\.\d+)?)\])|:hover\s*\{[^}]*transform:\s*scale\(1\.(?:0[2-9]|[1-9])/, code)].map((m) => m.index);
     },
   },
   {
@@ -996,9 +1008,24 @@ function formatText(result) {
 }
 
 function listRules() {
+  // A rule with no stacks or platforms restriction applies everywhere;
+  // --list-rules shows that as "all" instead of hiding the field.
+  const show = (v) => (v ? v.join(", ") : "all");
   return rules
-    .map((r) => `${r.id.padEnd(18)}  ${r.severity.padEnd(10)}  ${r.family.padEnd(15)}  ${r.message}\n${" ".repeat(20)}Fix: ${r.fix}`)
+    .map((r) => `${r.id.padEnd(18)}  ${r.severity.padEnd(10)}  ${r.family.padEnd(15)}  ${r.message}\n${" ".repeat(20)}Fix: ${r.fix}\n${" ".repeat(20)}Stacks: ${show(r.stacks)} | Platforms: ${show(r.platforms)}`)
     .join("\n");
+}
+
+function listRulesJson() {
+  return JSON.stringify(rules.map((r) => ({
+    id: r.id,
+    severity: r.severity,
+    family: r.family,
+    message: r.message,
+    fix: r.fix,
+    stacks: r.stacks ? [...r.stacks] : "all",
+    platforms: r.platforms ? [...r.platforms] : "all",
+  })), null, 2);
 }
 
 const USAGE = `Usage: unslop-anything detect [paths...] [--json] [--platform mobile|web|universal] [--ignore rule,rule] [--include-tests] [--list-rules]
@@ -1017,7 +1044,7 @@ function main(argv) {
     return 0;
   }
   if (args.includes("--list-rules")) {
-    console.log(listRules());
+    console.log(args.includes("--json") ? listRulesJson() : listRules());
     return 0;
   }
   const json = args.includes("--json");
@@ -1029,8 +1056,12 @@ function main(argv) {
     const a = args[i];
     if (a === "--platform") {
       platform = args[++i];
+      if (platform === undefined) {
+        console.error("Missing value for --platform. Choose from mobile, web, universal.");
+        return 1;
+      }
       if (!["mobile", "web", "universal"].includes(platform)) {
-        console.error(USAGE);
+        console.error(`Unknown platform: ${platform}. Choose from mobile, web, universal.`);
         return 1;
       }
     } else if (a === "--ignore") {

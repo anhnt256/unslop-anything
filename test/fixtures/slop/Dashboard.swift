@@ -5,6 +5,7 @@ struct Dashboard: View {
     var body: some View {
         ScrollView {
             VStack {
+                Text("NEW").textCase(.uppercase).tracking(2)
                 ForEach(rows) { row in
                     HStack {
                         Circle().fill(.green).frame(width: 8, height: 8)

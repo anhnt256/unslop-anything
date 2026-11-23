@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.svg" width="160" height="160" alt="A phone with a stethoscope listening to it">
+  <img src="docs/logo.png" width="160" height="160" alt="Van Gogh in a straw hat frowning at a phone with a purple gradient screen">
 </p>
 
 <h1 align="center">unslop-anything</h1>
