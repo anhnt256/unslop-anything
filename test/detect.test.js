@@ -598,3 +598,33 @@ test("hover-scale flags Tailwind arbitrary scale values of 1.02 and above", () =
   // The named steps still work.
   assert.deepStrictEqual(rulesFor('<div className="hover:scale-105">x</div>\n'), ["hover-scale"]);
 });
+
+test("glass-everywhere counts Tailwind backdrop-blur classes", () => {
+  // The three lines from issue #50.
+  const flagged = [
+    '<div className="backdrop-blur-xl bg-white/10">a</div>',
+    '<div className="backdrop-blur-md bg-black/20">b</div>',
+    '<div className="backdrop-blur-lg bg-white/5">c</div>',
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(flagged, "a.tsx").map((f) => f.rule), ["glass-everywhere"]);
+
+  // Two blur surfaces are not enough.
+  const two = flagged.split("\n").slice(0, 2).join("\n");
+  assert.deepStrictEqual(scanSource(two, "a.tsx"), []);
+
+  // Bare and arbitrary-value classes count too.
+  const mixed = [
+    '<div className="backdrop-blur">a</div>',
+    '<div className="backdrop-blur-[8px]">b</div>',
+    '<div className="backdrop-blur-sm">c</div>',
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(mixed, "a.tsx").map((f) => f.rule), ["glass-everywhere"]);
+
+  // backdrop-blur-none removes the blur, so it does not count toward the three.
+  const withNone = [
+    '<div className="backdrop-blur-none">a</div>',
+    '<div className="backdrop-blur-md">b</div>',
+    '<div className="backdrop-blur-lg">c</div>',
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(withNone, "a.tsx"), []);
+});

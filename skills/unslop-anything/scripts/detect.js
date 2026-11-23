@@ -391,7 +391,10 @@ const rules = [
     message: "Blur and glass used on several surfaces in one file.",
     fix: "Keep system materials behind bars and sheets. Make content surfaces opaque.",
     find({ code }) {
-      const all = [...matches(/\.(?:ultraThin|thin|regular|thick|ultraThick)Material\b|<BlurView\b|backdrop-filter|BackdropFilter\(|ImageFilter\.blur|\.glassEffect\(/, code)];
+      // Tailwind: backdrop-blur, backdrop-blur-<size> and backdrop-blur-[...]
+      // count as blur surfaces. backdrop-blur-none removes the blur, so it
+      // does not count.
+      const all = [...matches(/\.(?:ultraThin|thin|regular|thick|ultraThick)Material\b|<BlurView\b|backdrop-filter|BackdropFilter\(|ImageFilter\.blur|\.glassEffect\(|\bbackdrop-blur(?!-none\b)/, code)];
       return all.length >= 3 ? [all[0].index] : [];
     },
   },
