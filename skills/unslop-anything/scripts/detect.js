@@ -774,10 +774,14 @@ const rules = [
     fix: "Use that space for what a returning user came to do.",
     find({ code }) {
       // Flag the greeting with or without "!": "Welcome back", "Welcome back,
-      // Sarah", "Welcome back!". The lookahead is the guard against prose:
-      // the greeting must end at punctuation, a string/JSX boundary, or the
-      // end of the line, so "Welcome back to the team page" stays quiet.
-      return [...matches(/welcome back\s*(?:,[^"'<\n]*)?(?=[!?.]|["'}]|\s*<|$)/i, code)].map((m) => m.index);
+      // Sarah", "Welcome back, {name}", "Welcome back!". The comma branch only
+      // accepts a name — one or two words, or a {expression} — so prose after
+      // the comma ("Welcome back, we have updated the team page.") stays
+      // quiet. The lookahead is the guard against prose: the greeting must end
+      // at punctuation, a string/JSX boundary (including a closing
+      // backtick), or the end of the line, so "Welcome back to the team page"
+      // stays quiet.
+      return [...matches(/welcome back\s*(?:,\s*(?:\{[^}\n]*\}|[A-Za-z][A-Za-z'’\-]*(?:\s+[A-Za-z][A-Za-z'’\-]*)?))?(?=[!?.]|["'`}]|\s*<|$)/i, code)].map((m) => m.index);
     },
   },
   {

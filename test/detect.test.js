@@ -175,6 +175,12 @@ test("welcome-back fires with or without '!'", () => {
   assert.deepStrictEqual(scanSource("<Text>Welcome back, Sarah</Text>\n", "a.tsx").map((f) => f.rule), ["welcome-back"]);
   // Prose that only contains the words stays quiet.
   assert.deepStrictEqual(scanSource("<p>Welcome back to the team page</p>\n", "a.tsx"), []);
+  // A sentence after the comma is prose, not a name.
+  assert.deepStrictEqual(scanSource("<p>Welcome back, we have updated the team page.</p>\n", "a.tsx"), []);
+  // A closing backtick ends the greeting.
+  assert.deepStrictEqual(scanSource("const title = `Welcome back`;\n", "a.ts").map((f) => f.rule), ["welcome-back"]);
+  // A two-word name after the comma still counts.
+  assert.deepStrictEqual(scanSource("<Text>Welcome back, Mary Jane</Text>\n", "a.tsx").map((f) => f.rule), ["welcome-back"]);
 });
 
 test("XML ignore comments work", () => {
