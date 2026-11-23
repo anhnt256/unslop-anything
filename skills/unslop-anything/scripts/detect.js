@@ -767,10 +767,14 @@ const rules = [
     family: "copy",
     severity: "minor",
     stacks: null,
-    message: "\"Welcome back!\" spending prime screen space on a greeting.",
+    message: "\"Welcome back\" spending prime screen space on a greeting.",
     fix: "Use that space for what a returning user came to do.",
     find({ code }) {
-      return [...matches(/welcome back\s*(?:,[^"'<\n]*)?!/i, code)].map((m) => m.index);
+      // Flag the greeting with or without "!": "Welcome back", "Welcome back,
+      // Sarah", "Welcome back!". The lookahead is the guard against prose:
+      // the greeting must end at punctuation, a string/JSX boundary, or the
+      // end of the line, so "Welcome back to the team page" stays quiet.
+      return [...matches(/welcome back\s*(?:,[^"'<\n]*)?(?=[!?.]|["'}]|\s*<|$)/i, code)].map((m) => m.index);
     },
   },
   {

@@ -154,6 +154,17 @@ test("slop-gradient reads Android #AARRGGBB colors", () => {
   assert.deepStrictEqual(scanSource(scrim, "a.css"), []);
 });
 
+test("welcome-back fires with or without '!'", () => {
+  const withName = "export const A = () => <h1>Welcome back, {name}</h1>;\n";
+  const bare = "export const B = () => <h1>Welcome back</h1>;\n";
+  assert.deepStrictEqual(scanSource(withName, "a.tsx").map((f) => f.rule), ["welcome-back"]);
+  assert.deepStrictEqual(scanSource(bare, "a.tsx").map((f) => f.rule), ["welcome-back"]);
+  assert.deepStrictEqual(scanSource("<Text>Welcome back!</Text>\n", "a.tsx").map((f) => f.rule), ["welcome-back"]);
+  assert.deepStrictEqual(scanSource("<Text>Welcome back, Sarah</Text>\n", "a.tsx").map((f) => f.rule), ["welcome-back"]);
+  // Prose that only contains the words stays quiet.
+  assert.deepStrictEqual(scanSource("<p>Welcome back to the team page</p>\n", "a.tsx"), []);
+});
+
 test("XML ignore comments work", () => {
   const src = '<resources>\n  <!-- unslop-anything-ignore template-theme -->\n  <color name="purple_500">#6200EE</color>\n</resources>\n';
   assert.deepStrictEqual(scanSource(src, "colors.xml"), []);
