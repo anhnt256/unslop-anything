@@ -129,6 +129,38 @@ test("exit codes and json shape", () => {
   }
 });
 
+test("--list-rules shows stacks and platforms, and --json includes them", () => {
+  const log = console.log;
+  let out = "";
+  console.log = (s) => (out += s);
+  try {
+    assert.strictEqual(main(["--list-rules"]), 0);
+    assert.strictEqual(out.split("Stacks: ").length - 1, rules.length);
+    assert.ok(out.includes("Stacks: all | Platforms: all")); // slop-gradient: no restriction
+    assert.ok(out.includes("Stacks: all | Platforms: mobile, universal")); // drawer-nav
+    assert.ok(out.includes("Stacks: js, web, css | Platforms: mobile")); // hover-only
+    out = "";
+    assert.strictEqual(main(["--list-rules", "--json"]), 0);
+    const listed = JSON.parse(out);
+    assert.strictEqual(listed.length, rules.length);
+    const byId = new Map(listed.map((r) => [r.id, r]));
+    for (const r of listed) {
+      assert.ok(r.id && r.severity && r.family && r.message && r.fix);
+      assert.ok("stacks" in r && "platforms" in r);
+    }
+    assert.deepStrictEqual(byId.get("slop-gradient").stacks, "all");
+    assert.deepStrictEqual(byId.get("slop-gradient").platforms, "all");
+    assert.deepStrictEqual(byId.get("nested-cards").stacks, ["js", "kotlin", "dart", "web"]);
+    assert.deepStrictEqual(byId.get("nested-cards").platforms, "all");
+    assert.deepStrictEqual(byId.get("drawer-nav").stacks, "all");
+    assert.deepStrictEqual(byId.get("drawer-nav").platforms, ["mobile", "universal"]);
+    assert.deepStrictEqual(byId.get("hover-only").stacks, ["js", "web", "css"]);
+    assert.deepStrictEqual(byId.get("hover-only").platforms, ["mobile"]);
+  } finally {
+    console.log = log;
+  }
+});
+
 test("a quote inside a regex literal does not hide a real comment", () => {
   assert.deepStrictEqual(scanSource('const quote = /"/g; // Oops\n', "a.ts"), []);
   assert.deepStrictEqual(scanSource("<Text>Hi</Text> // Oops\n", "a.tsx"), []);

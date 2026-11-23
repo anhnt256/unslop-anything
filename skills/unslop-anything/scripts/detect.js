@@ -996,9 +996,24 @@ function formatText(result) {
 }
 
 function listRules() {
+  // A rule with no stacks or platforms restriction applies everywhere;
+  // --list-rules shows that as "all" instead of hiding the field.
+  const show = (v) => (v ? v.join(", ") : "all");
   return rules
-    .map((r) => `${r.id.padEnd(18)}  ${r.severity.padEnd(10)}  ${r.family.padEnd(15)}  ${r.message}\n${" ".repeat(20)}Fix: ${r.fix}`)
+    .map((r) => `${r.id.padEnd(18)}  ${r.severity.padEnd(10)}  ${r.family.padEnd(15)}  ${r.message}\n${" ".repeat(20)}Fix: ${r.fix}\n${" ".repeat(20)}Stacks: ${show(r.stacks)} | Platforms: ${show(r.platforms)}`)
     .join("\n");
+}
+
+function listRulesJson() {
+  return JSON.stringify(rules.map((r) => ({
+    id: r.id,
+    severity: r.severity,
+    family: r.family,
+    message: r.message,
+    fix: r.fix,
+    stacks: r.stacks ? [...r.stacks] : "all",
+    platforms: r.platforms ? [...r.platforms] : "all",
+  })), null, 2);
 }
 
 const USAGE = `Usage: unslop-anything detect [paths...] [--json] [--platform mobile|web|universal] [--ignore rule,rule] [--include-tests] [--list-rules]
@@ -1017,7 +1032,7 @@ function main(argv) {
     return 0;
   }
   if (args.includes("--list-rules")) {
-    console.log(listRules());
+    console.log(args.includes("--json") ? listRulesJson() : listRules());
     return 0;
   }
   const json = args.includes("--json");
