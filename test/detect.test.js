@@ -201,6 +201,9 @@ test("horizontal={false} is still a vertical list", () => {
 test("Android color resources reach template-theme", () => {
   const src = '<resources>\n  <color name="purple_500">#6200EE</color>\n</resources>\n';
   assert.deepStrictEqual(scanSource(src, "colors.xml").map((f) => f.rule), ["template-theme"]);
+  // Android Studio writes template colors with an alpha byte (#AARRGGBB).
+  const alpha = '<resources>\n  <color name="purple_500">#FF6200EE</color>\n  <color name="purple_700">#FF3700B3</color>\n</resources>\n';
+  assert.deepStrictEqual(scanSource(alpha, "colors.xml").map((f) => f.rule), ["template-theme", "template-theme"]);
 });
 
 test("transition-all flags `all` anywhere in a transition list", () => {
