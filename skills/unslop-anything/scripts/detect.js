@@ -62,14 +62,15 @@ function hexToHsl(hex) {
 }
 
 // Six-digit hex colors in a snippet: #RRGGBB, 0xFFRRGGBB, Color(0xRRGGBB),
-// and #AARRGGBB in Android XML.
+// and #AARRGGBB in Android XML. The 0xFF form is tried first so an
+// eight-digit 0xFFRRGGBB is never misread as the six-digit 0xFFRRGG.
 function hexColors(snippet, stack) {
   const out = [];
   const re = stack === "xml"
-    ? /#(?:[0-9a-fA-F]{2})?([0-9a-fA-F]{6})\b|0x[fF]{2}([0-9a-fA-F]{6})\b/g
-    : /#([0-9a-fA-F]{6})\b|0x[fF]{2}([0-9a-fA-F]{6})\b/g;
+    ? /#(?:[0-9a-fA-F]{2})?([0-9a-fA-F]{6})\b|0x[fF]{2}([0-9a-fA-F]{6})\b|0x([0-9a-fA-F]{6})\b/g
+    : /#([0-9a-fA-F]{6})\b|0x[fF]{2}([0-9a-fA-F]{6})\b|0x([0-9a-fA-F]{6})\b/g;
   let m;
-  while ((m = re.exec(snippet))) out.push((m[1] || m[2]).toUpperCase());
+  while ((m = re.exec(snippet))) out.push((m[1] || m[2] || m[3]).toUpperCase());
   return out;
 }
 
