@@ -45,6 +45,13 @@ test("Flutter slop is caught", () => {
   }
 });
 
+test("Android XML slop is caught", () => {
+  const found = new Set(scan([path.join(fixtures, "slop", "android")]).findings.map((f) => f.rule));
+  for (const id of ["fixed-text-size", "back-gesture", "emoji-icon"]) {
+    assert.ok(found.has(id), `missing ${id}`);
+  }
+});
+
 test("every rule has a fixture that triggers it", () => {
   const all = new Set(scan([path.join(fixtures, "slop")], { platform: "mobile" }).findings.map((f) => f.rule));
   for (const rule of rules) assert.ok(all.has(rule.id), `no fixture for ${rule.id}`);
