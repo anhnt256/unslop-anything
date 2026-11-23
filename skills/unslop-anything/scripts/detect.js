@@ -62,14 +62,22 @@ function hexToHsl(hex) {
 }
 
 // Six-digit hex colors in a snippet: #RRGGBB, 0xFFRRGGBB, Color(0xRRGGBB),
-// and #AARRGGBB in Android XML.
+// and #AARRGGBB in Android XML. #RRGGBBAA drops its alpha, and the short
+// forms expand (#RGB -> #RRGGBB, #RGBA -> #RRGGBB) so alpha and short
+// colors are read the same way as #RRGGBB.
 function hexColors(snippet, stack) {
   const out = [];
   const re = stack === "xml"
     ? /#(?:[0-9a-fA-F]{2})?([0-9a-fA-F]{6})\b|0x[fF]{2}([0-9a-fA-F]{6})\b/g
-    : /#([0-9a-fA-F]{6})\b|0x[fF]{2}([0-9a-fA-F]{6})\b/g;
+    : /#([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})\b|0x[fF]{2}([0-9a-fA-F]{6})\b/g;
   let m;
-  while ((m = re.exec(snippet))) out.push((m[1] || m[2]).toUpperCase());
+  while ((m = re.exec(snippet))) {
+    let hex = m[1] || m[2];
+    if (hex.length === 8) hex = hex.slice(0, 6);
+    else if (hex.length === 4) hex = hex.slice(0, 3).split("").map((c) => c + c).join("");
+    else if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("");
+    out.push(hex.toUpperCase());
+  }
   return out;
 }
 

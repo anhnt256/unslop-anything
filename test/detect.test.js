@@ -166,6 +166,23 @@ test("slop-gradient reads Android #AARRGGBB colors", () => {
   assert.deepStrictEqual(scanSource(scrim, "a.css"), []);
 });
 
+test("hexColors reads #RRGGBBAA, #RGB and #RGBA (issue #41)", () => {
+  const shadow = ".card { box-shadow: 0 0 24px #7c3aed80; }\n";
+  assert.deepStrictEqual(scanSource(shadow, "a.css").map((f) => f.rule), ["glow-shadow"]);
+  const gradient = ".hero { background: linear-gradient(135deg, #7c3aedcc, #a855f7cc); }\n";
+  assert.deepStrictEqual(scanSource(gradient, "a.css").map((f) => f.rule), ["slop-gradient"]);
+  // Short forms expand to the same colors (#73e -> #7733EE, #73e8 -> #7733EE).
+  const shortShadow = ".card { box-shadow: 0 0 24px #73e8; }\n";
+  assert.deepStrictEqual(scanSource(shortShadow, "a.css").map((f) => f.rule), ["glow-shadow"]);
+  const shortGradient = ".hero { background: linear-gradient(135deg, #73e, #a5f); }\n";
+  assert.deepStrictEqual(scanSource(shortGradient, "a.css").map((f) => f.rule), ["slop-gradient"]);
+  // A black shadow with alpha stays unflagged by glow-shadow.
+  const black = ".card { box-shadow: 0 0 24px #000000cc; }\n";
+  assert.deepStrictEqual(scanSource(black, "a.css"), []);
+  const blackShort = ".card { box-shadow: 0 0 24px #000c; }\n";
+  assert.deepStrictEqual(scanSource(blackShort, "a.css"), []);
+});
+
 test("welcome-back fires with or without '!'", () => {
   const withName = "export const A = () => <h1>Welcome back, {name}</h1>;\n";
   const bare = "export const B = () => <h1>Welcome back</h1>;\n";
