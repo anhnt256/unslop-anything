@@ -403,7 +403,7 @@ const rules = [
     message: "Sparkle icon. It usually marks an AI feature or stands in for meaning.",
     fix: "Use an icon that names the action, or a text label. If it marks an AI feature, make sure that feature is not in the way of the core task.",
     find({ code }) {
-      const re = /["']sparkles?["']|["']wand\.and\.stars|\bauto_awesome\b|\bAutoAwesome\b|\bSparkles\b|\bSparklesIcon\b|✨/;
+      const re = /["']sparkles?["']|["']wand\.and\.stars|\bauto_awesome\b|\bAutoAwesome\b|\bSparkles\b|\bSparklesIcon\b|\bSparkle\b|\bSparkleIcon\b|\bWandSparkles\b|\bWandSparklesIcon\b|✨/;
       return [...matches(re, code)].map((m) => m.index);
     },
   },
