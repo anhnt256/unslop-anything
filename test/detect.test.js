@@ -57,6 +57,19 @@ test("every rule has a fixture that triggers it", () => {
   for (const rule of rules) assert.ok(all.has(rule.id), `no fixture for ${rule.id}`);
 });
 
+test("safe-area-off flags .ignoresSafeArea(.all) forms, not backgrounds", () => {
+  const flagged = [
+    "VStack { }.ignoresSafeArea(.all)",
+    "VStack { }.ignoresSafeArea(.container, edges: .all)",
+    "VStack { }.ignoresSafeArea(edges: .all)",
+  ];
+  for (const src of flagged) {
+    assert.deepStrictEqual(scanSource(src, "a.swift").map((f) => f.rule), ["safe-area-off"]);
+  }
+  assert.deepStrictEqual(scanSource("Color.red.ignoresSafeArea(.all)", "a.swift"), []);
+  assert.deepStrictEqual(scanSource("VStack { }.ignoresSafeArea(.container)", "a.swift"), []);
+});
+
 test("commented-out code is ignored", () => {
   const src = '// <LinearGradient colors={["#7C3AED", "#EC4899"]} />\n/* Oops! Something went wrong */\n';
   assert.deepStrictEqual(scanSource(src, "a.tsx"), []);

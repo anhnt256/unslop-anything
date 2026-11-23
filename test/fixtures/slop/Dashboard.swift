@@ -18,6 +18,8 @@ struct Dashboard: View {
         .navigationBarBackButtonHidden(true)
         .toolbar { Image(systemName: "line.3.horizontal") }
         .ignoresSafeArea()
+        .ignoresSafeArea(.all)
+        .ignoresSafeArea(.container, edges: .all)
         .overlay { Text("A").background(.ultraThinMaterial) }
         .safeAreaInset(edge: .top) { Text("B").background(.thinMaterial) }
         .toolbarBackground(.regularMaterial)

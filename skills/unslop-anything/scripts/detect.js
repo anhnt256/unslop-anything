@@ -556,7 +556,7 @@ const rules = [
     fix: "Ignore the safe area for backgrounds only, e.g. .background(Color.surface.ignoresSafeArea()).",
     find({ code }) {
       const hits = [];
-      for (const m of matches(/\.ignoresSafeArea\(\s*\)|\.edgesIgnoringSafeArea\(\s*\.all\s*\)/, code)) {
+      for (const m of matches(/\.ignoresSafeArea\(\s*\)|\.ignoresSafeArea\([^)]*\.all\b[^)]*\)|\.edgesIgnoringSafeArea\(\s*\.all\s*\)/, code)) {
         const lineStart = code.lastIndexOf("\n", m.index) + 1;
         if (/background|Color\(|Color\.|Image\(|Gradient|Rectangle\(\)|Divider\(\)/.test(code.slice(lineStart, m.index))) continue;
         hits.push(m.index);
