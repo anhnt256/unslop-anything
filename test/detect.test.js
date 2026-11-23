@@ -280,6 +280,15 @@ test("an arrow function in an attribute does not end the tag for clickable-div a
   assert.deepStrictEqual(rulesFor("<img src={src} onError={() => setBroken(true)} />\n"), ["img-no-alt"]);
 });
 
+test("unverified-claim allows one adjective between the number and the noun", () => {
+  const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
+  assert.deepStrictEqual(rulesFor("<p>Join 10,000+ customers</p>\n"), ["unverified-claim"]);
+  assert.deepStrictEqual(rulesFor("<p>Join 10,000+ happy customers</p>\n"), ["unverified-claim"]);
+  assert.deepStrictEqual(rulesFor("<p>Trusted by 5,000 growing teams</p>\n"), ["unverified-claim"]);
+  // A time phrase is not a social-proof claim.
+  assert.deepStrictEqual(rulesFor("<p>Join 10 minutes early</p>\n"), []);
+});
+
 test("the installer rejects an unknown flag before it copies anything", () => {
   const fs = require("fs");
   const os = require("os");

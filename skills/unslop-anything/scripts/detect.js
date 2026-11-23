@@ -668,7 +668,7 @@ const rules = [
     message: "Social proof or speed claim that the page does not back up.",
     fix: "Use a real, sourced number with what it compares to, or remove it. Never ship invented customer counts, logo walls, or testimonials.",
     find({ code }) {
-      const re = /\b(?:trusted|loved|used) by (?:over |more than )?[\d,.]+\s*[kKM]?\+?\s*(?:teams|companies|developers|users|customers|people|businesses)|\bjoin (?:over |more than )?[\d,.]+\s*[kKM]?\+?\s+(?:teams|companies|developers|users|customers|people|others|creators)|\b\d+x (?:faster|better|more productive|cheaper)\b/i;
+      const re = /\b(?:trusted|loved|used) by (?:over |more than )?[\d,.]+\s*[kKM]?\+?\s*(?:[A-Za-z]+\s+)?(?:teams|companies|developers|users|customers|people|businesses)|\bjoin (?:over |more than )?[\d,.]+\s*[kKM]?\+?\s+(?:[A-Za-z]+\s+)?(?:teams|companies|developers|users|customers|people|others|creators)|\b\d+x (?:faster|better|more productive|cheaper)\b/i;
       return [...matches(re, code)].map((m) => m.index);
     },
   },
