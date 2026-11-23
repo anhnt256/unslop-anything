@@ -301,6 +301,114 @@ test("unverified-claim allows one adjective between the number and the noun", ()
   assert.deepStrictEqual(rulesFor("<p>Join 10 minutes early</p>\n"), []);
 });
 
+test("the installer --help flag prints usage and installs nothing", () => {
+  const fs = require("fs");
+  const os = require("os");
+  const { spawnSync } = require("child_process");
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "unslop-home-"));
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "unslop-cwd-"));
+  try {
+    const run = spawnSync(process.execPath, [path.join(__dirname, "..", "bin", "install.js"), "--help"], {
+      env: { ...process.env, HOME: home, USERPROFILE: home },
+      cwd,
+      encoding: "utf8",
+    });
+    assert.strictEqual(run.status, 0);
+    assert.match(run.stdout, /Usage:/);
+    assert.match(run.stdout, /--agent codex,cursor/);
+    assert.match(run.stdout, /--project/);
+    assert.deepStrictEqual(fs.readdirSync(home), []);
+    assert.deepStrictEqual(fs.readdirSync(cwd), []);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+    fs.rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test("the installer rejects an unknown agent before it copies anything", () => {
+  const fs = require("fs");
+  const os = require("os");
+  const { spawnSync } = require("child_process");
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "unslop-home-"));
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "unslop-cwd-"));
+  try {
+    const run = spawnSync(process.execPath, [path.join(__dirname, "..", "bin", "install.js"), "--agent", "nope"], {
+      env: { ...process.env, HOME: home, USERPROFILE: home },
+      cwd,
+      encoding: "utf8",
+    });
+    assert.strictEqual(run.status, 1);
+    assert.match(run.stderr, /Unknown agent: nope/);
+    assert.match(run.stderr, /Choose from claude, codex, cursor, opencode, gemini, copilot/);
+    assert.deepStrictEqual(fs.readdirSync(home), []);
+    assert.deepStrictEqual(fs.readdirSync(cwd), []);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+    fs.rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test("the installer installs --agent codex,cursor once into the shared .agents folder", () => {
+  const fs = require("fs");
+  const os = require("os");
+  const { spawnSync } = require("child_process");
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "unslop-home-"));
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "unslop-cwd-"));
+  try {
+    const run = spawnSync(process.execPath, [path.join(__dirname, "..", "bin", "install.js"), "--agent", "codex,cursor"], {
+      env: { ...process.env, HOME: home, USERPROFILE: home },
+      cwd,
+      encoding: "utf8",
+    });
+    assert.strictEqual(run.status, 0);
+    const dest = path.join(home, ".agents", "skills", "unslop-anything");
+    assert.ok(fs.existsSync(path.join(dest, "SKILL.md")));
+    assert.strictEqual(
+      fs.readFileSync(path.join(dest, "SKILL.md"), "utf8"),
+      fs.readFileSync(path.join(__dirname, "..", "skills", "unslop-anything", "SKILL.md"), "utf8")
+    );
+    // One shared destination, not one install per agent.
+    assert.strictEqual((run.stdout.match(/installed to/g) || []).length, 1);
+    assert.match(run.stdout, /Codex, Cursor/);
+    assert.ok(run.stdout.includes(dest));
+    // No per-agent folders were created.
+    assert.ok(!fs.existsSync(path.join(home, ".codex")));
+    assert.ok(!fs.existsSync(path.join(home, ".cursor")));
+    assert.deepStrictEqual(fs.readdirSync(cwd), []);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+    fs.rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test("the installer --project --agent gemini installs into the current folder", () => {
+  const fs = require("fs");
+  const os = require("os");
+  const { spawnSync } = require("child_process");
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "unslop-home-"));
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "unslop-cwd-"));
+  try {
+    const run = spawnSync(process.execPath, [path.join(__dirname, "..", "bin", "install.js"), "--project", "--agent", "gemini"], {
+      env: { ...process.env, HOME: home, USERPROFILE: home },
+      cwd,
+      encoding: "utf8",
+    });
+    assert.strictEqual(run.status, 0);
+    const dest = path.join(cwd, ".gemini", "skills", "unslop-anything");
+    assert.ok(fs.existsSync(path.join(dest, "SKILL.md")));
+    assert.strictEqual(
+      fs.readFileSync(path.join(dest, "SKILL.md"), "utf8"),
+      fs.readFileSync(path.join(__dirname, "..", "skills", "unslop-anything", "SKILL.md"), "utf8")
+    );
+    assert.ok(run.stdout.includes(dest));
+    // A project install touches the project, not the home folder.
+    assert.deepStrictEqual(fs.readdirSync(home), []);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+    fs.rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
 test("the installer rejects an unknown flag before it copies anything", () => {
   const fs = require("fs");
   const os = require("os");
