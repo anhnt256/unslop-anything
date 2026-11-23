@@ -420,6 +420,17 @@ test("an arrow function in an attribute does not end the tag for clickable-div a
   assert.deepStrictEqual(rulesFor("<img src={src} onError={() => setBroken(true)} />\n"), ["img-no-alt"]);
 });
 
+test("img-no-alt flags Next.js <Image> without alt, and ignores <ImageGallery>", () => {
+  const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
+  // Flagged: the exact line from the issue.
+  assert.deepStrictEqual(rulesFor('<Image src="/a.png" width={10} height={10} />\n'), ["img-no-alt"]);
+  // Unflagged: alt present, and the existing spread exception carries over.
+  assert.deepStrictEqual(rulesFor('<Image src="/a.png" alt="Team photo" />\n'), []);
+  assert.deepStrictEqual(rulesFor('<Image src="/a.png" {...props} />\n'), []);
+  // A component that merely starts with the letters must not match.
+  assert.deepStrictEqual(rulesFor("<ImageGallery items={items} />\n"), []);
+});
+
 test("unverified-claim allows one adjective between the number and the noun", () => {
   const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
   assert.deepStrictEqual(rulesFor("<p>Join 10,000+ customers</p>\n"), ["unverified-claim"]);

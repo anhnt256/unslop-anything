@@ -735,7 +735,7 @@ const rules = [
     fix: "Describe what the image shows, or use alt=\"\" for pure decoration.",
     find({ code }) {
       const hits = [];
-      for (const m of matches(/<img(?=[\s/>])/, code)) {
+      for (const m of matches(/<(?:img|Image)(?=[\s/>])/, code)) {
         const end = tagEnd(code, m.index);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
         if (!/[\s:]alt\s*=|\{\s*\.\.\./.test(tag)) hits.push(m.index);
