@@ -349,3 +349,16 @@ test("glow-shadow catches Tailwind colored and arbitrary shadows while ignoring 
   ].join("\n");
   assert.deepStrictEqual(scanSource(neutral, "a.tsx"), []);
 });
+
+test("hover-scale flags Tailwind arbitrary scale values of 1.02 and above", () => {
+  const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
+  // The issue's example line, plus the group- prefix variant.
+  assert.deepStrictEqual(rulesFor('<div className="hover:scale-[1.03]">x</div>\n'), ["hover-scale"]);
+  assert.deepStrictEqual(rulesFor('<div className="group-hover:scale-[1.02]">x</div>\n'), ["hover-scale"]);
+  assert.deepStrictEqual(rulesFor('<div className="hover:scale-[1.25]">x</div>\n'), ["hover-scale"]);
+  // At or below 1.01 the grow is too small to flag.
+  assert.deepStrictEqual(rulesFor('<div className="hover:scale-[1.01]">x</div>\n'), []);
+  assert.deepStrictEqual(rulesFor('<div className="hover:scale-[0.98]">x</div>\n'), []);
+  // The named steps still work.
+  assert.deepStrictEqual(rulesFor('<div className="hover:scale-105">x</div>\n'), ["hover-scale"]);
+});
