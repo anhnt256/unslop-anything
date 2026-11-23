@@ -598,3 +598,20 @@ test("hover-scale flags Tailwind arbitrary scale values of 1.02 and above", () =
   // The named steps still work.
   assert.deepStrictEqual(rulesFor('<div className="hover:scale-105">x</div>\n'), ["hover-scale"]);
 });
+
+test("glow-shadow flags #0000ff and a saturated second color in a shadow list, but not whole-black or neutral-only lists", () => {
+  const flagged = [
+    '<div className="shadow-[0_0_40px_#0000ff]">x</div>',
+    '<div className="shadow-[0_1px_2px_rgba(128,128,128,0.2),0_0_40px_rgba(124,58,237,0.5)]">x</div>',
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(flagged, "a.tsx").map((f) => f.rule), ["glow-shadow", "glow-shadow"]);
+
+  const notFlagged = [
+    '<div className="shadow-[0_0_40px_#000]">x</div>',
+    '<div className="shadow-[0_0_40px_#000000]">x</div>',
+    '<div className="shadow-[0_0_40px_#00000080]">x</div>',
+    '<div className="shadow-[0_2px_8px_rgba(0,0,0,0.2)]">x</div>',
+    '<div className="shadow-[0_1px_2px_rgba(0,0,0,0.2),0_2px_8px_rgba(128,128,128,0.3)]">x</div>',
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(notFlagged, "a.tsx"), []);
+});
