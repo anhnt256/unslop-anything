@@ -26,7 +26,7 @@ test("React Native slop is caught", () => {
 
 test("SwiftUI slop is caught", () => {
   const found = rulesIn("Dashboard.swift");
-  for (const id of ["unvirtualized-list", "status-dot", "fixed-text-size", "slop-gradient", "glow-shadow", "back-gesture", "drawer-nav", "safe-area-off"]) {
+  for (const id of ["unvirtualized-list", "status-dot", "fixed-text-size", "slop-gradient", "glow-shadow", "back-gesture", "drawer-nav", "safe-area-off", "tracked-caps-label"]) {
     assert.ok(found.has(id), `missing ${id}`);
   }
 });
