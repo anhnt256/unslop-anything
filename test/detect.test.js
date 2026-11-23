@@ -425,6 +425,7 @@ test("unverified-claim allows one adjective between the number and the noun", ()
   assert.deepStrictEqual(rulesFor("<p>Join 10,000+ customers</p>\n"), ["unverified-claim"]);
   assert.deepStrictEqual(rulesFor("<p>Join 10,000+ happy customers</p>\n"), ["unverified-claim"]);
   assert.deepStrictEqual(rulesFor("<p>Trusted by 5,000 growing teams</p>\n"), ["unverified-claim"]);
+  assert.deepStrictEqual(rulesFor("<p>Join 10,000 growing businesses</p>\n"), ["unverified-claim"]);
   // A time phrase is not a social-proof claim.
   assert.deepStrictEqual(rulesFor("<p>Join 10 minutes early</p>\n"), []);
 });
