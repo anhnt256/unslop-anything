@@ -1029,8 +1029,12 @@ function main(argv) {
     const a = args[i];
     if (a === "--platform") {
       platform = args[++i];
+      if (platform === undefined) {
+        console.error("Missing value for --platform. Choose from mobile, web, universal.");
+        return 1;
+      }
       if (!["mobile", "web", "universal"].includes(platform)) {
-        console.error(USAGE);
+        console.error(`Unknown platform: ${platform}. Choose from mobile, web, universal.`);
         return 1;
       }
     } else if (a === "--ignore") {

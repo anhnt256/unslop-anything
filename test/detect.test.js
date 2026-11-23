@@ -120,10 +120,17 @@ test("exit codes and json shape", () => {
     console.log = log;
   }
   const err = console.error;
-  console.error = () => {};
+  let errOut = "";
+  console.error = (s) => (errOut += s);
   try {
     assert.strictEqual(main(["--ignore", "not-a-rule"]), 1);
     assert.strictEqual(main(["--nope"]), 1);
+    errOut = "";
+    assert.strictEqual(main(["--platform", "desktop"]), 1);
+    assert.strictEqual(errOut, "Unknown platform: desktop. Choose from mobile, web, universal.");
+    errOut = "";
+    assert.strictEqual(main(["--platform"]), 1);
+    assert.strictEqual(errOut, "Missing value for --platform. Choose from mobile, web, universal.");
   } finally {
     console.error = err;
   }
