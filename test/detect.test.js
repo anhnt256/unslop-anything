@@ -145,6 +145,18 @@ test("Android color resources reach template-theme", () => {
   assert.deepStrictEqual(scanSource(src, "colors.xml").map((f) => f.rule), ["template-theme"]);
 });
 
+test("transition-all flags `all` anywhere in a transition list", () => {
+  const flagged = ".x { transition: color .2s, all .3s; }\n";
+  assert.deepStrictEqual(scanSource(flagged, "a.css").map((f) => f.rule), ["transition-all"]);
+  const property = ".y { transition-property: all; }\n";
+  assert.deepStrictEqual(scanSource(property, "a.css").map((f) => f.rule), ["transition-all"]);
+  // A property name that merely starts with `all` is not `all`.
+  const allInOne = ".a { transition: all-in-one .2s; }\n";
+  assert.deepStrictEqual(scanSource(allInOne, "a.css"), []);
+  const named = ".b { transition: color .2s; }\n";
+  assert.deepStrictEqual(scanSource(named, "a.css"), []);
+});
+
 test("slop-gradient reads Android #AARRGGBB colors", () => {
   const src = '<gradient android:startColor="#FF7C3AED" android:endColor="#FFEC4899"/>\n';
   assert.deepStrictEqual(scanSource(src, "bg.xml").map((f) => f.rule), ["slop-gradient"]);

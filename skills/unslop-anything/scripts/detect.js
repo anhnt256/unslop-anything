@@ -629,7 +629,10 @@ const rules = [
     fix: "Name the properties: transition-colors, or transition-[transform,opacity]. Never animate width, height, top, or left.",
     find({ code }) {
       // Reported once per file: it is usually a habit, not a one-off.
-      const first = matches(/\btransition-all\b|transition(?:-property)?:\s*all\b/, code).next();
+      // `all` may sit anywhere in the list, not just first:
+      // `transition: color .2s, all .3s` counts, but a property name that
+      // merely starts with `all` (e.g. `all-in-one`) does not.
+      const first = matches(/\btransition-all\b|transition(?:-property)?:[^;{}]*?(?<![\w-])all(?![\w-])/, code).next();
       return first.done ? [] : [first.value.index];
     },
   },
