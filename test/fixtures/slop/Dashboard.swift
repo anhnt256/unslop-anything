@@ -11,6 +11,7 @@ struct Dashboard: View {
                         Text(row.title).font(.system(size: 15))
                     }
                 }
+                Button("Submit") { save() }
             }
         }
         .background(LinearGradient(colors: [.purple, .indigo], startPoint: .top, endPoint: .bottom))

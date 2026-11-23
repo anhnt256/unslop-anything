@@ -788,7 +788,21 @@ const rules = [
     message: "Button label that does not say what happens.",
     fix: "Use a verb and an object: \"Save address\", \"Send invoice\", \"Book table\".",
     find({ code }) {
-      return [...matches(/(?:title|label|text)\s*[=:]\s*\{?\s*["'](?:Submit|Click here|Tap here)["']|>\s*(?:Submit|Click here|Tap here)\s*</i, code)].map((m) => m.index);
+      const hits = [...matches(/(?:title|label|text)\s*[=:]\s*\{?\s*["'](?:Submit|Click here|Tap here)["']|>\s*(?:Submit|Click here|Tap here)\s*</i, code)].map((m) => m.index);
+      // Native buttons: the label only counts inside a button call, so a
+      // bare Text("Submit") used as a heading or field label stays quiet.
+      // Button("Submit") { save() } (Swift), Button(onClick = {}) {
+      // Text("Submit") } (Compose trailing lambda), ElevatedButton(...,
+      // child: Text("Submit")) (Flutter).
+      const vague = /["'](?:Submit|Click here|Tap here)["']/;
+      for (const m of matches(/\b(?:ElevatedButton|TextButton|OutlinedButton|FilledButton|Button)\s*\(/, code)) {
+        const open = m.index + m[0].length - 1;
+        let end = closeOf(code, open);
+        const lambda = /^\s*\{/.exec(code.slice(end));
+        if (lambda) end = closeOf(code, end + lambda[0].length - 1);
+        if (vague.test(code.slice(open, end))) hits.push(m.index);
+      }
+      return hits;
     },
   },
   {

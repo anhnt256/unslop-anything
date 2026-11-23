@@ -11,6 +11,7 @@ fun MainScreen(items: List<Item>) {
             }
         }
         Box(Modifier.size(8.dp).background(Color.Green, CircleShape))
+        Button(onClick = {}) { Text("Submit") }
         Icon(Icons.Default.Menu, contentDescription = null)
     }
 }

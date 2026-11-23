@@ -26,21 +26,21 @@ test("React Native slop is caught", () => {
 
 test("SwiftUI slop is caught", () => {
   const found = rulesIn("Dashboard.swift");
-  for (const id of ["unvirtualized-list", "status-dot", "fixed-text-size", "slop-gradient", "glow-shadow", "back-gesture", "drawer-nav", "safe-area-off"]) {
+  for (const id of ["unvirtualized-list", "status-dot", "fixed-text-size", "slop-gradient", "glow-shadow", "back-gesture", "drawer-nav", "safe-area-off", "vague-button"]) {
     assert.ok(found.has(id), `missing ${id}`);
   }
 });
 
 test("Compose slop is caught", () => {
   const found = rulesIn("MainScreen.kt");
-  for (const id of ["template-theme", "unvirtualized-list", "nested-cards", "status-dot", "drawer-nav", "back-gesture"]) {
+  for (const id of ["template-theme", "unvirtualized-list", "nested-cards", "status-dot", "drawer-nav", "back-gesture", "vague-button"]) {
     assert.ok(found.has(id), `missing ${id}`);
   }
 });
 
 test("Flutter slop is caught", () => {
   const found = rulesIn("home.dart");
-  for (const id of ["template-theme", "back-gesture", "unvirtualized-list", "nested-cards", "status-dot", "fixed-text-size"]) {
+  for (const id of ["template-theme", "back-gesture", "unvirtualized-list", "nested-cards", "status-dot", "fixed-text-size", "vague-button"]) {
     assert.ok(found.has(id), `missing ${id}`);
   }
 });
@@ -155,6 +155,18 @@ test("transition-all flags `all` anywhere in a transition list", () => {
   assert.deepStrictEqual(scanSource(allInOne, "a.css"), []);
   const named = ".b { transition: color .2s; }\n";
   assert.deepStrictEqual(scanSource(named, "a.css"), []);
+});
+
+test("vague-button catches Swift, Compose and Flutter buttons", () => {
+  assert.deepStrictEqual(scanSource('Button("Submit") { save() }', "a.swift").map((f) => f.rule), ["vague-button"]);
+  assert.deepStrictEqual(scanSource('Button(onClick = {}) { Text("Submit") }', "a.kt").map((f) => f.rule), ["vague-button"]);
+  assert.deepStrictEqual(scanSource('ElevatedButton(onPressed: save, child: Text("Submit"))', "a.dart").map((f) => f.rule), ["vague-button"]);
+  // A bare Text("Submit") outside a button call stays quiet.
+  assert.deepStrictEqual(scanSource('Text("Submit")', "a.kt"), []);
+  assert.deepStrictEqual(scanSource("Text('Submit')", "a.dart"), []);
+  // Specific labels stay quiet.
+  assert.deepStrictEqual(scanSource('Button("Save address")', "a.swift"), []);
+  assert.deepStrictEqual(scanSource('Text("Save address")', "a.kt"), []);
 });
 
 test("slop-gradient reads Android #AARRGGBB colors", () => {

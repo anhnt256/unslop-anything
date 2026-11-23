@@ -18,5 +18,6 @@ class Home extends StatelessWidget {
   }
 }
 
+final submitButton = ElevatedButton(onPressed: () {}, child: Text("Submit"));
 final dot = Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle));
 final t = MediaQuery(data: MediaQueryData(textScaler: TextScaler.noScaling), child: Text('Hi'));
