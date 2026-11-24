@@ -218,6 +218,25 @@ function* matches(re, text) {
   }
 }
 
+// True when the `brush =` at `index` sits inside a TextStyle(...) or
+// SpanStyle(...) call: walk backwards matching parens until the innermost
+// still-open `(` is found and check the callee name in front of it.
+function isTextBrush(code, index) {
+  let depth = 0;
+  for (let i = index - 1; i >= 0; i--) {
+    const c = code[i];
+    if (c === ")") depth++;
+    else if (c === "(") {
+      if (depth > 0) depth--;
+      else {
+        const name = /(?:^|[^\w.])(TextStyle|SpanStyle)\s*$/.exec(code.slice(0, i));
+        return Boolean(name);
+      }
+    }
+  }
+  return false;
+}
+
 // Index just past the bracket that closes the one at `open`.
 function closeOf(text, open) {
   const pairs = { "(": ")", "{": "}", "[": "]" };
@@ -269,8 +288,16 @@ const rules = [
     message: "Gradient-filled text.",
     fix: "Emphasize with weight or size from the type scale, in a solid theme color.",
     find({ code }) {
-      const re = /<MaskedView|\bShaderMask\s*\(|\.foregroundStyle\(\s*(?:LinearGradient|\.linearGradient)|\.foregroundStyle\([^)]*Gradient|brush\s*=\s*Brush\.\w+Gradient|background-clip:\s*text|-webkit-background-clip:\s*text|\bbg-clip-text\b/;
-      return [...matches(re, code)].map((m) => m.index);
+      const hits = [];
+      const re = /<MaskedView|\bShaderMask\s*\(|\.foregroundStyle\(\s*(?:LinearGradient|\.linearGradient)|\.foregroundStyle\([^)]*Gradient|background-clip:\s*text|-webkit-background-clip:\s*text|\bbg-clip-text\b/;
+      for (const m of matches(re, code)) hits.push(m.index);
+      // Compose: only a brush passed to TextStyle/SpanStyle is gradient text.
+      // Modifier.background(brush = ...) and Modifier.border(..., brush = ...)
+      // are plain gradient surfaces, not text, so they stay with slop-gradient.
+      for (const m of matches(/brush\s*=\s*Brush\.\w+Gradient/, code)) {
+        if (isTextBrush(code, m.index)) hits.push(m.index);
+      }
+      return hits;
     },
   },
   {

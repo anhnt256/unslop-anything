@@ -254,6 +254,19 @@ test("slop-gradient reads Android #AARRGGBB colors", () => {
   assert.deepStrictEqual(scanSource(scrim, "a.css"), []);
 });
 
+test("gradient-text flags text brushes only, not gradient backgrounds (issue #66)", () => {
+  // Issue #66: a neutral gradient background has no text in it.
+  const background = "Box(Modifier.background(brush = Brush.verticalGradient(listOf(Color.White, Color.LightGray))))\n";
+  assert.deepStrictEqual(scanSource(background, "a.kt"), []);
+  const border = "Box(Modifier.border(2.dp, brush = Brush.linearGradient(listOf(Color.White, Color.LightGray))))\n";
+  assert.deepStrictEqual(scanSource(border, "a.kt"), []);
+  // A brush passed to text still flags.
+  const textStyle = "Text(\"Hello\", style = TextStyle(brush = Brush.linearGradient(listOf(Color.Red, Color.Blue))))\n";
+  assert.deepStrictEqual(scanSource(textStyle, "a.kt").map((f) => f.rule), ["gradient-text"]);
+  const spanStyle = "buildAnnotatedString { withStyle(SpanStyle(brush = Brush.linearGradient(listOf(Color.Red, Color.Blue)))) { append(\"Hi\") } }\n";
+  assert.deepStrictEqual(scanSource(spanStyle, "a.kt").map((f) => f.rule), ["gradient-text"]);
+});
+
 test("0xRRGGBB colors are read alongside 0xFFRRGGBB", () => {
   // Issue #42: the common Swift form Color(hex: 0x7C3AED) was missed.
   const shadow = 'Text("x").shadow(color: Color(hex: 0x7C3AED), radius: 20)\n';
