@@ -717,7 +717,10 @@ const rules = [
       for (const m of matches(/["'`][^"'`\n]*\b(?:focus:)?outline-none\b[^"'`\n]*["'`]/, code)) {
         // Focus styles often sit in another string of the same cn(...) call.
         const around = code.slice(Math.max(0, m.index - 400), m.index + m[0].length + 400);
-        if (/\b(?:focus|focus-visible|focus-within|group-focus-visible|peer-focus-visible):|data-\[(?:highlighted|selected|focus|focused)|aria-selected:|data-\[state=/.test(around)) continue;
+        // The matched token itself may be `focus:outline-none`; its `focus:`
+        // must not count as the replacement focus style it is missing.
+        const withoutMatch = around.replace(/\bfocus:outline-none\b/g, "");
+        if (/\b(?:focus|focus-visible|focus-within|group-focus-visible|peer-focus-visible):|data-\[(?:highlighted|selected|focus|focused)|aria-selected:|data-\[state=/.test(withoutMatch)) continue;
         hits.push(m.index);
       }
       if ((stack === "css" || stack === "web") && !/focus-visible/.test(code)) {
