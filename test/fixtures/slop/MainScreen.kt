@@ -11,6 +11,8 @@ fun MainScreen(items: List<Item>) {
             }
         }
         Box(Modifier.size(8.dp).background(Color.Green, CircleShape))
+        Text("Dashboard", style = TextStyle(brush = Brush.linearGradient(colors = listOf(Color(0xFF7C3AED), Color(0xFFEC4899)))))
+        Card(modifier = Modifier.shadow(elevation = 8.dp, ambientColor = Color(0xFF7C3AED), spotColor = Color(0xFFEC4899))) { Text("Glow") }
         Button(onClick = {}) { Text("Submit") }
         Icon(Icons.Default.Menu, contentDescription = null)
     }
