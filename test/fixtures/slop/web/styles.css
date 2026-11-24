@@ -12,3 +12,10 @@ button {
 .card:hover {
   transform: scale(1.05);
 }
+
+.gradient-title {
+  background: linear-gradient(90deg, #7c3aed, #ec4899);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

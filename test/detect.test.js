@@ -26,21 +26,21 @@ test("React Native slop is caught", () => {
 
 test("SwiftUI slop is caught", () => {
   const found = rulesIn("Dashboard.swift");
-  for (const id of ["unvirtualized-list", "status-dot", "fixed-text-size", "slop-gradient", "glow-shadow", "back-gesture", "drawer-nav", "safe-area-off", "tracked-caps-label", "vague-button"]) {
+  for (const id of ["unvirtualized-list", "status-dot", "fixed-text-size", "slop-gradient", "gradient-text", "glow-shadow", "back-gesture", "drawer-nav", "safe-area-off", "tracked-caps-label", "vague-button"]) {
     assert.ok(found.has(id), `missing ${id}`);
   }
 });
 
 test("Compose slop is caught", () => {
   const found = rulesIn("MainScreen.kt");
-  for (const id of ["template-theme", "unvirtualized-list", "nested-cards", "status-dot", "drawer-nav", "back-gesture", "vague-button"]) {
+  for (const id of ["template-theme", "unvirtualized-list", "nested-cards", "status-dot", "drawer-nav", "back-gesture", "vague-button", "gradient-text", "glow-shadow"]) {
     assert.ok(found.has(id), `missing ${id}`);
   }
 });
 
 test("Flutter slop is caught", () => {
   const found = rulesIn("home.dart");
-  for (const id of ["template-theme", "back-gesture", "unvirtualized-list", "nested-cards", "status-dot", "fixed-text-size", "vague-button"]) {
+  for (const id of ["template-theme", "back-gesture", "unvirtualized-list", "nested-cards", "status-dot", "fixed-text-size", "vague-button", "gradient-text", "glow-shadow"]) {
     assert.ok(found.has(id), `missing ${id}`);
   }
 });

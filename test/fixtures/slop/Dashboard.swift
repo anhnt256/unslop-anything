@@ -6,6 +6,7 @@ struct Dashboard: View {
         ScrollView {
             VStack {
                 Text("NEW").textCase(.uppercase).tracking(2)
+                Text("Dashboard").foregroundStyle(LinearGradient(colors: [.purple, .pink], startPoint: .leading, endPoint: .trailing))
                 ForEach(rows) { row in
                     HStack {
                         Circle().fill(.green).frame(width: 8, height: 8)
