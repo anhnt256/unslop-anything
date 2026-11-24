@@ -369,13 +369,37 @@ test("web slop is caught", () => {
   const found = new Set(scan([path.join(fixtures, "slop", "web")]).findings.map((f) => f.rule));
   for (const id of [
     "slop-gradient", "gradient-text", "tracked-caps-label", "unverified-claim", "img-no-alt", "decorative-pulse",
-    "clickable-div", "transition-all", "hover-scale", "icon-tile", "focus-removed", "zoom-disabled",
+    "clickable-div", "transition-all", "hover-scale", "icon-tile", "focus-removed", "zoom-disabled", "nested-cards",
   ]) assert.ok(found.has(id), `missing ${id}`);
+});
+
+test("Vue, Svelte and Astro slop is caught", () => {
+  for (const file of ["Pricing.vue", "Card.svelte", "Hero.astro"]) {
+    const found = rulesIn(path.join("web", file));
+    for (const id of ["clickable-div", "img-no-alt", "transition-all"]) {
+      assert.ok(found.has(id), `${file} missing ${id}`);
+    }
+  }
+});
+
+test("JS comments inside Vue, Svelte and Astro script blocks are ignored", () => {
+  for (const file of ["Pricing.vue", "Card.svelte", "Hero.astro"]) {
+    const found = rulesIn(path.join("web", file));
+    assert.ok(!found.has("oops-error"), `${file} flagged oops-error`);
+  }
+});
+
+test("Ionic drawer-nav fires on a universal scan", () => {
+  const found = new Set(
+    scan([path.join(fixtures, "slop", "web", "Ionic.html")], { platform: "universal" }).findings.map((f) => f.rule),
+  );
+  assert.ok(found.has("drawer-nav"), "missing drawer-nav");
+  assert.ok(found.has("nested-cards"), "missing nested-cards");
 });
 
 test("clean web fixtures produce no findings", () => {
   const { findings, filesScanned } = scan([path.join(fixtures, "clean-web")]);
-  assert.strictEqual(filesScanned, 2);
+  assert.strictEqual(filesScanned, 6);
   assert.deepStrictEqual(findings, []);
 });
 
