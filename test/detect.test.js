@@ -211,6 +211,7 @@ test("Android color resources reach template-theme", () => {
   // Android Studio writes template colors with an alpha byte (#AARRGGBB).
   const alpha = '<resources>\n  <color name="purple_500">#FF6200EE</color>\n  <color name="purple_700">#FF3700B3</color>\n</resources>\n';
   assert.deepStrictEqual(scanSource(alpha, "colors.xml").map((f) => f.rule), ["template-theme", "template-theme"]);
+  assert.deepStrictEqual(scanSource(".a { color: #FF6200EE; }\n", "a.css"), []);
 });
 
 test("transition-all flags `all` anywhere in a transition list", () => {
