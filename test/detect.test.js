@@ -155,6 +155,37 @@ test("exit codes and json shape", () => {
   }
 });
 
+test("--fail-on chooses which severity fails the scan", () => {
+  const log = console.log;
+  let out = "";
+  console.log = (s) => (out += s);
+  try {
+    // The slop fixture has only noticeable and minor findings today
+    // (no rule is critical yet), so --fail-on critical passes the scan
+    // while still printing every finding.
+    assert.strictEqual(main([path.join(fixtures, "slop"), "--fail-on", "critical"]), 0);
+    assert.match(out, /67 findings/);
+    out = "";
+    assert.strictEqual(main([path.join(fixtures, "slop"), "--fail-on", "noticeable"]), 2);
+    out = "";
+    assert.strictEqual(main([path.join(fixtures, "slop"), "--fail-on", "minor"]), 2);
+  } finally {
+    console.log = log;
+  }
+  const err = console.error;
+  let errOut = "";
+  console.error = (s) => (errOut += s);
+  try {
+    assert.strictEqual(main([path.join(fixtures, "slop"), "--fail-on", "bogus"]), 1);
+    assert.strictEqual(errOut, "Unknown severity: bogus. Choose from critical, noticeable, minor.");
+    errOut = "";
+    assert.strictEqual(main([path.join(fixtures, "slop"), "--fail-on"]), 1);
+    assert.strictEqual(errOut, "Missing value for --fail-on. Choose from critical, noticeable, minor.");
+  } finally {
+    console.error = err;
+  }
+});
+
 test("--list-rules shows stacks and platforms, and --json includes them", () => {
   const log = console.log;
   let out = "";
