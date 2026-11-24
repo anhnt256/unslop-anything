@@ -91,6 +91,13 @@ test("inline ignore comments silence a line", () => {
   assert.deepStrictEqual(scanSource(src, "a.ts").map((f) => f.line), [4]);
 });
 
+test("a CSS block comment silences a line, since // is not a CSS comment", () => {
+  const css = ".a:focus { outline: none; }\n";
+  assert.deepStrictEqual(scanSource(css, "a.css").map((f) => f.rule), ["focus-removed"]);
+  assert.deepStrictEqual(scanSource(`/* unslop-anything-ignore focus-removed */\n${css}`, "a.css"), []);
+  assert.deepStrictEqual(scanSource(`.a:focus { outline: none; } /* unslop-anything-ignore focus-removed */\n`, "a.css"), []);
+});
+
 test("ignore comments from before the rename still work", () => {
   const src = '// unslopovich-ignore oops-error\nconst a = "Oops";\nconst b = "Oops"; // unslopovich-ignore\nconst c = "Oops";\n';
   assert.deepStrictEqual(scanSource(src, "a.ts").map((f) => f.line), [4]);
@@ -201,6 +208,10 @@ test("horizontal={false} is still a vertical list", () => {
 test("Android color resources reach template-theme", () => {
   const src = '<resources>\n  <color name="purple_500">#6200EE</color>\n</resources>\n';
   assert.deepStrictEqual(scanSource(src, "colors.xml").map((f) => f.rule), ["template-theme"]);
+  // Android Studio writes template colors with an alpha byte (#AARRGGBB).
+  const alpha = '<resources>\n  <color name="purple_500">#FF6200EE</color>\n  <color name="purple_700">#FF3700B3</color>\n</resources>\n';
+  assert.deepStrictEqual(scanSource(alpha, "colors.xml").map((f) => f.rule), ["template-theme", "template-theme"]);
+  assert.deepStrictEqual(scanSource(".a { color: #FF6200EE; }\n", "a.css"), []);
 });
 
 test("transition-all flags `all` anywhere in a transition list", () => {
@@ -252,6 +263,57 @@ test("slop-gradient reads Android #AARRGGBB colors", () => {
   assert.deepStrictEqual(scanSource(rgb, "bg.xml").map((f) => f.rule), ["slop-gradient"]);
   const scrim = ".hero { background: linear-gradient(to bottom, transparent, #000000CC); }\n";
   assert.deepStrictEqual(scanSource(scrim, "a.css"), []);
+});
+
+test("slop-gradient reads only the gradient's own colors (issue #67)", () => {
+  const gradientLines = (src, file) =>
+    scanSource(src, file).filter((f) => f.rule === "slop-gradient").map((f) => f.line);
+  // A purple that is not one of the stops: the next rule, a child's style, the
+  // next statement, another prop. None of these gradients is purple.
+  const notStops = [
+    [".hero { background: linear-gradient(#ffffff, #f4f4f5); }\n.btn { color: #7c3aed; }\n", "a.css"],
+    ['<LinearGradient colors={["#ffffff", "#f4f4f5"]}>\n  <Text style={{ color: "#7c3aed" }}>Hi</Text>\n</LinearGradient>\n', "a.tsx"],
+    ['<div style={{ background: "linear-gradient(#fff, #f4f4f5)", color: "#7c3aed" }} />\n', "a.tsx"],
+    ["Rectangle().fill(LinearGradient(colors: [.white, .gray], startPoint: .top, endPoint: .bottom))\n  .foregroundStyle(.purple)\n", "a.swift"],
+    ["val bg = Brush.verticalGradient(listOf(Color.White, Color.LightGray))\nval accent = Color(0xFF7C3AED)\n", "a.kt"],
+    ['const g = ctx.createLinearGradient(0, 0, 200, 0);\ng.addColorStop(0, "#ffffff");\ng.addColorStop(1, "#f4f4f5");\nctx.strokeStyle = "#7c3aed";\n', "a.js"],
+  ];
+  for (const [src, file] of notStops) assert.deepStrictEqual(gradientLines(src, file), [], src);
+  // Purple stops wherever a gradient keeps them stay flagged: in the call, the
+  // element's props, SVG <stop> children, or the canvas and Android calls that
+  // follow a constructor taking no colors.
+  const stops = [
+    ['<svg><linearGradient id="g"><stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#ec4899"/></linearGradient></svg>\n', "a.html"],
+    ['<LinearGradient id="g" x1="0" y1="0" x2="1" y2="0">\n  <Stop offset="0" stopColor="#7c3aed" />\n</LinearGradient>\n', "a.tsx"],
+    ['const g = ctx.createLinearGradient(0, 0, 200, 0);\ng.addColorStop(0, "#7c3aed");\ng.addColorStop(1, "#ec4899");\n', "a.js"],
+    ["val d = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0xFF7C3AED.toInt(), 0xFFEC4899.toInt()))\n", "a.kt"],
+    ["val d = GradientDrawable().apply {\n  colors = intArrayOf(0xFF7C3AED.toInt(), 0xFFEC4899.toInt())\n}\n", "a.kt"],
+    ["decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.deepPurple, Colors.pink])),\n", "a.dart"],
+    ['<div className="bg-[linear-gradient(90deg,#7c3aed,#ec4899)]" />\n', "a.tsx"],
+  ];
+  for (const [src, file] of stops) assert.deepStrictEqual(gradientLines(src, file), [1], src);
+  // Stops that need the whole expression or the variable's whole lifetime.
+  const spread = [
+    // A ">" inside a JSX expression does not end the <Stop> tag.
+    ['<LinearGradient id="g">\n  <Stop offset={i > 0 ? "0" : "1"} stopColor="#7c3aed" />\n</LinearGradient>\n', "a.tsx", [1]],
+    // The assignment and the constructor on different lines.
+    ['const g =\n  ctx.createLinearGradient(0, 0, 1, 0);\ng.addColorStop(0, "#7c3aed");\n', "a.js", [2]],
+    // Another gradient built before this one's stops are added.
+    ['const a = ctx.createLinearGradient(0, 0, 1, 0);\nconst b = ctx.createLinearGradient(0, 0, 1, 0);\na.addColorStop(0, "#7c3aed");\nb.addColorStop(0, "#ffffff");\n', "a.js", [1]],
+    // A colors assignment that spans lines.
+    ["val d = GradientDrawable()\nd.colors = intArrayOf(\n  0xFF7C3AED.toInt()\n)\n", "a.kt", [1]],
+    // A reassigned variable: each gradient keeps only its own stops.
+    ['let g = ctx.createLinearGradient(0, 0, 1, 0);\ng.addColorStop(0, "#ffffff");\ng = ctx.createLinearGradient(0, 0, 1, 0);\ng.addColorStop(0, "#7c3aed");\n', "a.js", [3]],
+    // A declaration of the same name in a nested block shadows the variable;
+    // it does not end it.
+    ['const g = ctx.createLinearGradient(0, 0, 1, 0);\nfunction helper() {\n  const g = null;\n}\ng.addColorStop(0, "#7c3aed");\n', "a.js", [1]],
+    // The variable ends with its block: a sibling function's own g is another gradient.
+    ['function a() {\n  const g = ctx.createLinearGradient(0, 0, 1, 0);\n  g.addColorStop(0, "#ffffff");\n}\nfunction b() {\n  const g = ctx.createLinearGradient(0, 0, 1, 0);\n  g.addColorStop(0, "#7c3aed");\n}\n', "a.js", [6]],
+    // A "$" identifier, and a member of another object that shares the name.
+    ['const $g = ctx.createLinearGradient(0, 0, 1, 0);\n$g.addColorStop(0, "#7c3aed");\n', "a.js", [1]],
+    ['const g = ctx.createLinearGradient(0, 0, 1, 0);\ng.addColorStop(0, "#ffffff");\nother.g.addColorStop(0, "#7c3aed");\n', "a.js", []],
+  ];
+  for (const [src, file, lines] of spread) assert.deepStrictEqual(gradientLines(src, file), lines, src);
 });
 
 test("0xRRGGBB colors are read alongside 0xFFRRGGBB", () => {
@@ -420,6 +482,45 @@ test("an arrow function in an attribute does not end the tag for clickable-div a
   assert.deepStrictEqual(rulesFor("<img src={src} onError={() => setBroken(true)} />\n"), ["img-no-alt"]);
 });
 
+test("img-no-alt flags Next.js <Image> without alt, and ignores <ImageGallery>", () => {
+  const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
+  // Flagged: the exact line from the issue.
+  assert.deepStrictEqual(rulesFor('<Image src="/a.png" width={10} height={10} />\n'), ["img-no-alt"]);
+  // Unflagged: alt present, and the existing spread exception carries over.
+  assert.deepStrictEqual(rulesFor('<Image src="/a.png" alt="Team photo" />\n'), []);
+  assert.deepStrictEqual(rulesFor('<Image src="/a.png" {...props} />\n'), []);
+  // A component that merely starts with the letters must not match.
+  assert.deepStrictEqual(rulesFor("<ImageGallery items={items} />\n"), []);
+  assert.deepStrictEqual(rulesFor("<Image source={logo} accessibilityLabel=\"Logo\" />\n"), []);
+});
+
+test("clickable-div flags a href-less anchor with onClick", () => {
+  const findingsFor = (src) => scanSource(src, "a.tsx");
+  const src = [
+    "<a onClick={go}>Go</a>",
+    "<span onClick={go}>Go</span>",
+    '<a href="/docs" onClick={track}>Docs</a>',
+    "",
+  ].join("\n");
+  const flagged = findingsFor(src).filter((f) => f.rule === "clickable-div").map((f) => f.line);
+  assert.deepStrictEqual(flagged, [1, 2]);
+  assert.deepStrictEqual(scanSource('<a :href="url" @click="track">Docs</a>\n', "a.vue"), []);
+  // A button role with a tabIndex is the one escape hatch for anchors...
+  assert.deepStrictEqual(findingsFor('<a onClick={go} role="button" tabIndex={0}>Go</a>\n'), []);
+  // ...but role alone or tabIndex alone does not excuse it.
+  assert.deepStrictEqual(findingsFor('<a onClick={go} role="button">Go</a>\n').map((f) => f.rule), ["clickable-div"]);
+  assert.deepStrictEqual(findingsFor('<a onClick={go} tabIndex={0}>Go</a>\n').map((f) => f.rule), ["clickable-div"]);
+});
+
+test("focus-removed flags a bare focus:outline-none, not one with a ring replacement", () => {
+  const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
+  assert.deepStrictEqual(rulesFor('<input className="focus:outline-none" />\n'), ["focus-removed"]);
+  assert.deepStrictEqual(rulesFor('<input className="outline-none" />\n'), ["focus-removed"]);
+  // A replacement focus style in the same string (or nearby) keeps it quiet.
+  assert.deepStrictEqual(rulesFor('<input className="focus:outline-none focus:ring-2" />\n'), []);
+  assert.deepStrictEqual(rulesFor('<input className="focus:outline-none focus-visible:ring-2" />\n'), []);
+});
+
 test("nested-cards ignores dotted subcomponents and ion-card parts, still flags a real nested card", () => {
   const rulesFor = (src, file = "a.tsx") => scanSource(src, file).map((f) => f.rule);
   // Issue #65: dotted subcomponents of a single card are not nested cards.
@@ -439,6 +540,7 @@ test("unverified-claim allows one adjective between the number and the noun", ()
   assert.deepStrictEqual(rulesFor("<p>Join 10,000+ customers</p>\n"), ["unverified-claim"]);
   assert.deepStrictEqual(rulesFor("<p>Join 10,000+ happy customers</p>\n"), ["unverified-claim"]);
   assert.deepStrictEqual(rulesFor("<p>Trusted by 5,000 growing teams</p>\n"), ["unverified-claim"]);
+  assert.deepStrictEqual(rulesFor("<p>Join 10,000 growing businesses</p>\n"), ["unverified-claim"]);
   // A time phrase is not a social-proof claim.
   assert.deepStrictEqual(rulesFor("<p>Join 10 minutes early</p>\n"), []);
 });
@@ -611,4 +713,76 @@ test("hover-scale flags Tailwind arbitrary scale values of 1.02 and above", () =
   assert.deepStrictEqual(rulesFor('<div className="hover:scale-[0.98]">x</div>\n'), []);
   // The named steps still work.
   assert.deepStrictEqual(rulesFor('<div className="hover:scale-105">x</div>\n'), ["hover-scale"]);
+});
+
+test("glow-shadow catches Android shadowColor on one line or with alpha", () => {
+  const oneLine = '<TextView android:shadowColor="#7C3AED" android:shadowRadius="20" />';
+  const multiLine = '<TextView\n    android:shadowColor="#807C3AED"\n    android:shadowRadius="20" />';
+  assert.deepStrictEqual(scanSource(oneLine, "a.xml").map((f) => f.rule), ["glow-shadow"]);
+  assert.deepStrictEqual(scanSource(multiLine, "a.xml").map((f) => f.rule), ["glow-shadow"]);
+
+  // Semi-transparent black is a neutral shadow, not a colored glow.
+  const neutral = '<TextView android:shadowColor="#80000000" android:shadowRadius="20" />';
+  assert.deepStrictEqual(scanSource(neutral, "a.xml"), []);
+});
+
+test("sparkle-icon flags the singular and combined icon names", () => {
+  const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
+  // Issue #45: these gave no finding before the fix.
+  assert.deepStrictEqual(rulesFor("<Sparkle />\n"), ["sparkle-icon"]);
+  assert.deepStrictEqual(rulesFor("<SparkleIcon />\n"), ["sparkle-icon"]);
+  assert.deepStrictEqual(rulesFor("<WandSparkles />\n"), ["sparkle-icon"]);
+  assert.deepStrictEqual(rulesFor("<WandSparklesIcon />\n"), ["sparkle-icon"]);
+  // Still flagged, as before.
+  assert.deepStrictEqual(rulesFor("<Sparkles />\n"), ["sparkle-icon"]);
+  // A word that only contains the letters is a different component, not a
+  // sparkle icon: word boundaries keep SparkleCounter unflagged.
+  assert.deepStrictEqual(rulesFor("<SparkleCounter />\n"), []);
+});
+
+test("glow-shadow flags #0000ff and a saturated second color in a shadow list, but not whole-black or neutral-only lists", () => {
+  const flagged = [
+    '<div className="shadow-[0_0_40px_#0000ff]">x</div>',
+    '<div className="shadow-[0_1px_2px_rgba(128,128,128,0.2),0_0_40px_rgba(124,58,237,0.5)]">x</div>',
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(flagged, "a.tsx").map((f) => f.rule), ["glow-shadow", "glow-shadow"]);
+
+  const notFlagged = [
+    '<div className="shadow-[0_0_40px_#000]">x</div>',
+    '<div className="shadow-[0_0_40px_#000000]">x</div>',
+    '<div className="shadow-[0_0_40px_#00000080]">x</div>',
+    '<div className="shadow-[0_2px_8px_rgba(0,0,0,0.2)]">x</div>',
+    '<div className="shadow-[0_1px_2px_rgba(0,0,0,0.2),0_2px_8px_rgba(128,128,128,0.3)]">x</div>',
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(notFlagged, "a.tsx"), []);
+});
+
+test("glass-everywhere counts Tailwind backdrop-blur classes", () => {
+  // The three lines from issue #50.
+  const flagged = [
+    '<div className="backdrop-blur-xl bg-white/10">a</div>',
+    '<div className="backdrop-blur-md bg-black/20">b</div>',
+    '<div className="backdrop-blur-lg bg-white/5">c</div>',
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(flagged, "a.tsx").map((f) => f.rule), ["glass-everywhere"]);
+
+  // Two blur surfaces are not enough.
+  const two = flagged.split("\n").slice(0, 2).join("\n");
+  assert.deepStrictEqual(scanSource(two, "a.tsx"), []);
+
+  // Bare and arbitrary-value classes count too.
+  const mixed = [
+    '<div className="backdrop-blur">a</div>',
+    '<div className="backdrop-blur-[8px]">b</div>',
+    '<div className="backdrop-blur-sm">c</div>',
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(mixed, "a.tsx").map((f) => f.rule), ["glass-everywhere"]);
+
+  // backdrop-blur-none removes the blur, so it does not count toward the three.
+  const withNone = [
+    '<div className="backdrop-blur-none">a</div>',
+    '<div className="backdrop-blur-md">b</div>',
+    '<div className="backdrop-blur-lg">c</div>',
+  ].join("\n");
+  assert.deepStrictEqual(scanSource(withNone, "a.tsx"), []);
 });
