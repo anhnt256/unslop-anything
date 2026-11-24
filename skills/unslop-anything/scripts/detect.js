@@ -762,7 +762,16 @@ const rules = [
     message: "\"Oops\" or \"Something went wrong\": no cause, no next step.",
     fix: "Say what failed in the product's words and what the user can do: retry, check the connection, contact support.",
     find({ code }) {
-      return [...matches(/\boops\b|something went wrong/i, code)].map((m) => m.index);
+      const hits = [];
+      for (const m of matches(/\boops\b|something went wrong/i, code)) {
+        // Log calls and thrown errors never reach the user, so skip a match
+        // whose line starts as one: console.*, logger.*, Log.*, print,
+        // debugPrint, NSLog, or `throw new Error(...)`.
+        const lineStart = code.lastIndexOf("\n", m.index) + 1;
+        if (/\b(?:console|logger|log|Log)\.\w+\s*\(|\b(?:print|debugPrint|NSLog)\s*\(|throw\s+new\b/.test(code.slice(lineStart, m.index))) continue;
+        hits.push(m.index);
+      }
+      return hits;
     },
   },
   {
