@@ -609,3 +609,14 @@ test("hover-scale flags Tailwind arbitrary scale values of 1.02 and above", () =
   // The named steps still work.
   assert.deepStrictEqual(rulesFor('<div className="hover:scale-105">x</div>\n'), ["hover-scale"]);
 });
+
+test("glow-shadow catches Android shadowColor on one line or with alpha", () => {
+  const oneLine = '<TextView android:shadowColor="#7C3AED" android:shadowRadius="20" />';
+  const multiLine = '<TextView\n    android:shadowColor="#807C3AED"\n    android:shadowRadius="20" />';
+  assert.deepStrictEqual(scanSource(oneLine, "a.xml").map((f) => f.rule), ["glow-shadow"]);
+  assert.deepStrictEqual(scanSource(multiLine, "a.xml").map((f) => f.rule), ["glow-shadow"]);
+
+  // Semi-transparent black is a neutral shadow, not a colored glow.
+  const neutral = '<TextView android:shadowColor="#80000000" android:shadowRadius="20" />';
+  assert.deepStrictEqual(scanSource(neutral, "a.xml"), []);
+});
