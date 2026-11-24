@@ -4,9 +4,7 @@
 
 <h1 align="center">unslop-anything</h1>
 
-<p align="center"><em>Your app looks AI-generated. Dr. Unslopovich noticed.</em></p>
-
-<p align="center"><sub>Renamed from unslopovich in 3.1.0. Old <code>unslopovich-ignore</code> comments and <code>.unslopovich/</code> folders keep working, and <code>npx unslop-anything</code> replaces an old install.</sub></p>
+<p align="center"><em>Your app looks AI-generated. Vincent Van Gogh noticed.</em></p>
 
 <p align="center"><em>Users don't hate your purple gradient. They hate what you did to the back button.</em></p>
 
@@ -147,7 +145,7 @@ On the web it adds clickable divs, removed focus rings, disabled zoom, images wi
 
 It reads the nearest `package.json` to tell a phone app from a website, so hover is a problem in your Expo app and fine on your Next.js site. `--platform web`, `--platform mobile`, or `--platform universal` settles it when it guesses wrong. Use `universal` when the project ships to both phone and web so both rule sets apply.
 
-Exit code `2` means findings, so it can gate a pull request. Silence one line with `// unslop-anything-ignore <rule-id>` (`<!-- unslop-anything-ignore <rule-id> -->` in XML), or a whole rule in `.unslop-anything/config.json`:
+Exit code `2` means findings, so it can gate a pull request. Silence one line with `// unslop-anything-ignore <rule-id>` (`<!-- unslop-anything-ignore <rule-id> -->` in XML, `/* unslop-anything-ignore <rule-id> */` in CSS), or a whole rule in `.unslop-anything/config.json`:
 
 ```json
 { "ignoreRules": ["status-dot"], "ignorePaths": ["src/legacy/"] }
