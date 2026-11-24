@@ -420,6 +420,20 @@ test("an arrow function in an attribute does not end the tag for clickable-div a
   assert.deepStrictEqual(rulesFor("<img src={src} onError={() => setBroken(true)} />\n"), ["img-no-alt"]);
 });
 
+test("nested-cards ignores dotted subcomponents and ion-card parts, still flags a real nested card", () => {
+  const rulesFor = (src, file = "a.tsx") => scanSource(src, file).map((f) => f.rule);
+  // Issue #65: dotted subcomponents of a single card are not nested cards.
+  assert.deepStrictEqual(rulesFor("<Card>\n  <Card.Title title=\"Hi\" />\n  <Card.Content><Text>x</Text></Card.Content>\n</Card>\n"), []);
+  // Same for Ionic: hyphenated subcomponents are parts of one card.
+  assert.deepStrictEqual(rulesFor("<ion-card><ion-card-header><ion-card-title>x</ion-card-title></ion-card-header></ion-card>", "a.html"), []);
+  // A compound tag name starting with Card is not a nested card either.
+  assert.deepStrictEqual(rulesFor("<Card><CardHeader>x</CardHeader></Card>"), []);
+  // A genuine nested card is still flagged.
+  assert.deepStrictEqual(rulesFor("<Card><Card><Text>x</Text></Card></Card>"), ["nested-cards"]);
+  assert.deepStrictEqual(rulesFor("<Card className=\"x\"><Card className=\"y\">z</Card></Card>"), ["nested-cards"]);
+  assert.deepStrictEqual(rulesFor("<ion-card><ion-card></ion-card></ion-card>", "a.html"), ["nested-cards"]);
+});
+
 test("unverified-claim allows one adjective between the number and the noun", () => {
   const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
   assert.deepStrictEqual(rulesFor("<p>Join 10,000+ customers</p>\n"), ["unverified-claim"]);

@@ -362,13 +362,13 @@ const rules = [
     find({ code, stack }) {
       const hits = [];
       if (stack === "js" || stack === "web") {
-        for (const m of matches(/<(Card|ion-card)\b[^>]*?(\/?)>/, code)) {
+        for (const m of matches(/<(Card|ion-card)(?=[\s/>])[^>]*?(\/?)>/, code)) {
           if (m[2] === "/") continue;
           const tag = m[1];
           const close = code.indexOf(`</${tag}>`, m.index);
           if (close === -1) continue;
           const inner = code.slice(m.index + m[0].length, close);
-          if (new RegExp(`<${tag}\\b`).test(inner)) hits.push(m.index);
+          if (new RegExp(`<${tag}(?=[\\s/>])`).test(inner)) hits.push(m.index);
         }
       } else {
         const card = /\b(?:Elevated|Outlined|Filled)?Card\s*[({]/;
