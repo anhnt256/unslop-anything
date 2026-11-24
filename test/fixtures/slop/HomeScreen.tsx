@@ -10,6 +10,9 @@ export function HomeScreen({ items }) {
         <Text>Welcome back!</Text>
         <Text>Unlock your potential with seamless planning ✨</Text>
       </LinearGradient>
+      <ParallaxScrollView>
+        <HelloWave />
+      </ParallaxScrollView>
       <MaskedView maskElement={<Text>Pro</Text>} />
       <Card>
         <Card>
