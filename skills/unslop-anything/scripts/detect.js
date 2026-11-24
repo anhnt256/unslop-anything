@@ -234,6 +234,99 @@ function closeOf(text, open) {
   return text.length;
 }
 
+// The part of `rest` (the text after a gradient's constructor) during which
+// `variable` still holds that gradient: up to the end of the enclosing block,
+// or up to the variable's next assignment. A declaration of the same name in a
+// nested block (a helper's own `const g`) shadows it and does not end it.
+function bindingRegion(rest, variable) {
+  let depth = 0;
+  let blockEnd = rest.length;
+  for (let i = 0; i < rest.length; i++) {
+    if (rest[i] === "{") depth++;
+    else if (rest[i] === "}" && --depth < 0) { blockEnd = i; break; }
+  }
+  const region = rest.slice(0, blockEnd);
+  const write = new RegExp(`(?<![\\w$.])(?:(?:const|let|var|val)\\s+)?${variable}\\s*=(?!=)`);
+  for (const m of matches(write, region)) {
+    const declaredInNestedBlock =
+      /^(?:const|let|var|val)\s/.test(m[0]) && blockDepth(region, m.index) > 0;
+    if (!declaredInNestedBlock) return region.slice(0, m.index);
+  }
+  return region;
+}
+
+function blockDepth(text, index) {
+  let depth = 0;
+  for (let i = 0; i < index; i++) {
+    if (text[i] === "{") depth++;
+    else if (text[i] === "}") depth--;
+  }
+  return depth;
+}
+
+const COLOR_SIGN =/#[0-9a-fA-F]{3,8}\b|0x[0-9a-fA-F]{6,8}\b|\b(?:rgba?|hsla?|oklch|oklab)\(|\bColors?\.\w|\.(?:purple|indigo|pink|blue|red|green|orange|yellow|white|black|gray|grey)\b/;
+
+// The text that holds the colors of the gradient named at `start`, so a color
+// after it (the next CSS rule, a child element's style, the next statement)
+// is never read as one of its stops (issue #67). Empty when the name is not a
+// gradient definition, e.g. a type like GradientDrawable.Orientation.
+function gradientScope(text, start, name) {
+  // An element: <LinearGradient colors={...}>, <gradient android:startColor=.../>,
+  // or an SVG <linearGradient> whose colors sit on its <stop> children. Other
+  // children (an expo-linear-gradient's <Text>) are content, not stops.
+  if (name.startsWith("<") || text[start - 1] === "<") {
+    const end = tagEnd(text, start);
+    if (end === -1) return text.slice(start, text.indexOf("\n", start) >>> 0);
+    let scope = text.slice(start, end + 1);
+    if (text[end - 1] !== "/") {
+      const close = text.indexOf(`</${name.replace(/^</, "")}`, end);
+      const body = text.slice(end + 1, close === -1 ? text.length : close);
+      // tagEnd() skips "{...}", so a ">" in a JSX expression (offset={i > 0 ...})
+      // does not cut the tag before its stopColor.
+      for (const stop of matches(/<stop\b/i, body)) {
+        const stopEnd = tagEnd(body, stop.index);
+        scope += body.slice(stop.index, stopEnd === -1 ? body.length : stopEnd + 1);
+      }
+    }
+    return scope;
+  }
+  // A call: linear-gradient(...), LinearGradient(colors: ...), Brush.linearGradient(...).
+  const paren = start + name.length + (text.slice(start + name.length).match(/^\s*/)?.[0].length ?? 0);
+  if (text[paren] !== "(") return "";
+  const end = closeOf(text, paren);
+  let scope = text.slice(start, end);
+  if (COLOR_SIGN.test(scope.slice(name.length))) return scope;
+  // A constructor that takes no colors (canvas createLinearGradient, Android
+  // GradientDrawable()): they come in a Kotlin .apply { } block right after,
+  // or in calls on the variable it is assigned to, for as long as that
+  // variable holds it (until it is assigned again).
+  const apply = /^\s*\.apply\s*\{/.exec(text.slice(end));
+  if (apply) scope += text.slice(end, closeOf(text, end + apply[0].length - 1));
+  // The assignment may sit on the line above: "const g =\n  ctx.create...".
+  const assigned = /([A-Za-z_$][\w$]*)\s*=\s*(?:new\s+)?[\w$.]*$/.exec(text.slice(Math.max(0, start - 200), start));
+  if (assigned) {
+    // Identifier characters only, so "$" is the one character to escape. The
+    // lookbehind is the identifier boundary: \b fails before "$g", and a
+    // preceding "." would make it another object's member (other.g).
+    const variable = assigned[1].replace(/\$/g, "\\$");
+    const region = bindingRegion(text.slice(end), variable);
+    for (const call of matches(new RegExp(`(?<![\\w$.])${variable}\\.(?:addColorStop|setColors)\\s*\\(|(?<![\\w$.])${variable}\\.colors\\s*=(?!=)`), region)) {
+      const after = call.index + call[0].length;
+      let tail;
+      if (call[0].endsWith("(")) {
+        tail = closeOf(region, after - 1);
+      } else {
+        // `.colors = intArrayOf(...)` may span lines: read the value through
+        // its closing bracket, or to the end of the line for a plain value.
+        const at = after + /^\s*(?:new\s+)?[\w$.]*\s*/.exec(region.slice(after))[0].length;
+        tail = "([{".includes(region[at]) ? closeOf(region, at) : region.indexOf("\n", call.index) >>> 0;
+      }
+      scope += region.slice(call.index, tail);
+    }
+  }
+  return scope;
+}
+
 // ---------- rules ----------
 // Each rule gets ctx { code, stack, file } and returns indexes into code.
 
@@ -251,8 +344,9 @@ const rules = [
       for (const m of matches(/(?<!<\/)(?:LinearGradient|linearGradient|RadialGradient|radialGradient|AngularGradient|Brush\.(?:linear|radial|horizontal|vertical|sweep)Gradient|linear-gradient|radial-gradient|GradientDrawable|<gradient\b)/, code)) {
         const lineStart = code.lastIndexOf("\n", m.index) + 1;
         if (/^\s*(?:import|export\s+\{|from)\b/.test(code.slice(lineStart, m.index))) continue;
-        const snippet = code.slice(m.index, m.index + 400);
-        if (hexColors(snippet, stack).some(isSlopHue) || SLOP_COLOR_NAME.test(snippet.slice(0, 250))) hits.push(m.index);
+        // Only the gradient's own stops count, not whatever follows it.
+        const stops = gradientScope(code, m.index, m[0]);
+        if (hexColors(stops, stack).some(isSlopHue) || SLOP_COLOR_NAME.test(stops)) hits.push(m.index);
       }
       // Tailwind: bg-gradient-to-r from-violet-600 to-fuchsia-500
       for (const m of matches(/["'`][^"'`\n]*\bbg-(?:gradient|linear|radial|conic)-[^"'`\n]*["'`]/, code)) {
@@ -280,8 +374,10 @@ const rules = [
     stacks: null,
     message: "The project template's default color is still the theme.",
     fix: "Pick the brand's own accent and define semantic roles (background, surface, text, accent, destructive). Ask first if that purple has become the brand.",
-    find({ code }) {
-      const re = /seedColor:\s*Colors\.deepPurple|0x[fF]{2}(?:6650[aA]4|[dD]0[bB][cC][fF][fF]|6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b|#(?:6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b/;
+    find({ code, stack }) {
+      const re = stack === "xml"
+        ? /#(?:[fF]{2})?(?:6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b/
+        : /seedColor:\s*Colors\.deepPurple|0x[fF]{2}(?:6650[aA]4|[dD]0[bB][cC][fF][fF]|6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b|#(?:6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b/;
       return [...matches(re, code)].map((m) => m.index);
     },
   },
@@ -292,15 +388,19 @@ const rules = [
     stacks: null,
     message: "Colored glow shadow.",
     fix: "Shadows carry depth, not color: use the platform elevation or a soft neutral shadow, or remove it.",
-    find({ code }) {
+    find({ code, stack }) {
       const hits = [];
-      for (const m of matches(/\.shadow\(\s*color:\s*([^,)]+)|shadowColor\s*[:=]\s*([^,;\n}]+)|(?:ambientColor|spotColor)\s*=\s*([^,)\n]+)|BoxShadow\(\s*color:\s*([^,)\n]+)|box-shadow:\s*([^;\n]+)|\bshadow-((?:purple|violet|indigo|pink|fuchsia|blue|cyan|teal)-\d{2,3})\b|\bshadow-\[([^\]\n]+)\]/, code)) {
+      for (const m of matches(/\.shadow\(\s*color:\s*([^,)]+)|shadowColor\s*[:=]\s*["']?([^"',;\n}]+)|(?:ambientColor|spotColor)\s*=\s*([^,)\n]+)|BoxShadow\(\s*color:\s*([^,)\n]+)|box-shadow:\s*([^;\n]+)|\bshadow-((?:purple|violet|indigo|pink|fuchsia|blue|cyan|teal)-\d{2,3})\b|\bshadow-\[([^\]\n]+)\]/, code)) {
         const value = m.slice(1).find(Boolean) || "";
-        if (/black|gray|grey|shadow|\.primary\b|label|0x[0-9a-f]{2}000000|#000|rgba?\([\s_]*0(?:[\s_]*,[\s_]*|[\s_]+)0(?:[\s_]*,[\s_]*|[\s_]+)0/i.test(value)) continue;
+        if (/black|gray|grey|shadow|\.primary\b|label|0x[0-9a-f]{2}000000|#000(?:000)?(?:[0-9a-f]{2})?\b|#000[0-9a-f]\b|rgba?\([\s_]*0(?:[\s_]*,[\s_]*|[\s_]+)0(?:[\s_]*,[\s_]*|[\s_]+)0/i.test(value)) continue;
         const named = /(?:\.|Colors\.|Color\.|\b)(purple|deepPurple|indigo|violet|pink|magenta|fuchsia|blue|cyan|teal|mint|accentColor|accent)\b/i.test(value);
-        const hex = hexColors(value).some(isSaturated);
-        const rgb = /rgba?\([\s_]*(\d+)(?:[\s_]*,[\s_]*|[\s_]+)(\d+)(?:[\s_]*,[\s_]*|[\s_]+)(\d+)/.exec(value);
-        const rgbSat = rgb && Math.max(+rgb[1], +rgb[2], +rgb[3]) - Math.min(+rgb[1], +rgb[2], +rgb[3]) > 60;
+        const hex = hexColors(value, stack).some(isSaturated);
+        const rgbRe = /rgba?\([\s_]*(\d+)(?:[\s_]*,[\s_]*|[\s_]+)(\d+)(?:[\s_]*,[\s_]*|[\s_]+)(\d+)/g;
+        let rgbSat = false;
+        let rgb;
+        while ((rgb = rgbRe.exec(value))) {
+          if (Math.max(+rgb[1], +rgb[2], +rgb[3]) - Math.min(+rgb[1], +rgb[2], +rgb[3]) > 60) { rgbSat = true; break; }
+        }
         if (named || hex || rgbSat) hits.push(m.index);
       }
       return hits;
@@ -406,7 +506,7 @@ const rules = [
     message: "Sparkle icon. It usually marks an AI feature or stands in for meaning.",
     fix: "Use an icon that names the action, or a text label. If it marks an AI feature, make sure that feature is not in the way of the core task.",
     find({ code }) {
-      const re = /["']sparkles?["']|["']wand\.and\.stars|\bauto_awesome\b|\bAutoAwesome\b|\bSparkles\b|\bSparklesIcon\b|✨/;
+      const re = /["']sparkles?["']|["']wand\.and\.stars|\bauto_awesome\b|\bAutoAwesome\b|\bSparkles\b|\bSparklesIcon\b|\bSparkle\b|\bSparkleIcon\b|\bWandSparkles\b|\bWandSparklesIcon\b|✨/;
       return [...matches(re, code)].map((m) => m.index);
     },
   },
@@ -686,7 +786,7 @@ const rules = [
     message: "Social proof or speed claim that the page does not back up.",
     fix: "Use a real, sourced number with what it compares to, or remove it. Never ship invented customer counts, logo walls, or testimonials.",
     find({ code }) {
-      const re = /\b(?:trusted|loved|used) by (?:over |more than )?[\d,.]+\s*[kKM]?\+?\s*(?:[A-Za-z]+\s+)?(?:teams|companies|developers|users|customers|people|businesses)|\bjoin (?:over |more than )?[\d,.]+\s*[kKM]?\+?\s+(?:[A-Za-z]+\s+)?(?:teams|companies|developers|users|customers|people|others|creators)|\b\d+x (?:faster|better|more productive|cheaper)\b/i;
+      const re = /\b(?:trusted|loved|used) by (?:over |more than )?[\d,.]+\s*[kKM]?\+?\s*(?:[A-Za-z]+\s+)?(?:teams|companies|developers|users|customers|people|businesses)|\bjoin (?:over |more than )?[\d,.]+\s*[kKM]?\+?\s+(?:[A-Za-z]+\s+)?(?:teams|companies|developers|users|customers|people|businesses|others|creators)|\b\d+x (?:faster|better|more productive|cheaper)\b/i;
       return [...matches(re, code)].map((m) => m.index);
     },
   },
@@ -738,9 +838,10 @@ const rules = [
     fix: "Describe what the image shows, or use alt=\"\" for pure decoration.",
     find({ code }) {
       const hits = [];
-      for (const m of matches(/<img(?=[\s/>])/, code)) {
+      for (const m of matches(/<(?:img|Image)(?=[\s/>])/, code)) {
         const end = tagEnd(code, m.index);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
+        if (tag.startsWith("<Image") && !/\ssrc\s*=/.test(tag)) continue;
         if (!/[\s:]alt\s*=|\{\s*\.\.\./.test(tag)) hits.push(m.index);
       }
       return hits;
