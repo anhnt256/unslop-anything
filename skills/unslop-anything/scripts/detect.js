@@ -1267,6 +1267,10 @@ function main(argv) {
     console.error(err.message);
     return 1;
   }
+  if (result.filesScanned === 0 && !json && !result.unreadable.length) {
+    console.error(result.message);
+    return 1;
+  }
   console.log(json ? JSON.stringify(result, null, 2) : formatText(result));
   if (result.unreadable.length) {
     console.error(`Could not read ${result.unreadable.length} file(s): ${result.unreadable.join(", ")}. The scan is incomplete.`);
