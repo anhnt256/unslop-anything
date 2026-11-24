@@ -744,6 +744,47 @@ const rules = [
     },
   },
   {
+    id: "placeholder-label",
+    family: "accessibility",
+    severity: "noticeable",
+    stacks: ["js", "web"],
+    message: "Input uses a placeholder as its only label.",
+    fix: "Give the field a real label: wrap it in <label>, point a <label htmlFor> at its id, or add aria-label. Placeholders disappear while typing and are not read as labels.",
+    find({ code }) {
+      // Ids a <label for/htmlFor> in this file points to (static strings only).
+      const labelledBy = new Set();
+      for (const m of matches(/<label\b[^<>]*?\s(?:htmlFor|for)\s*=\s*(?:"([^"]+)"|'([^']+)'|\{\s*"([^"]+)"\s*\}|\{\s*'([^']+)'\s*\})/, code)) {
+        labelledBy.add(m[1] || m[2] || m[3] || m[4]);
+      }
+      // Ranges wrapped in a <label>...</label> pair.
+      const wrapped = [];
+      for (const m of matches(/<label\b[^<>]*>/, code)) {
+        const tag = m[0];
+        if (/\/\s*>$/.test(tag)) continue;
+        const close = code.indexOf("</label>", m.index + tag.length);
+        if (close !== -1) wrapped.push([m.index, close]);
+      }
+      const hits = [];
+      for (const m of matches(/<(?:input|textarea)(?=[\s/>])/, code)) {
+        const end = tagEnd(code, m.index);
+        const tag = code.slice(m.index, end === -1 ? undefined : end);
+        if (!/[\s:]placeholder\s*=/.test(tag)) continue;
+        if (/[\s:]aria-label\s*=|[\s:]aria-labelledby\s*=/.test(tag)) continue;
+        const type = /[\s:]type\s*=\s*(?:"([^"]*)"|'([^']*)'|\{\s*"([^"]*)"\s*\}|\{\s*'([^']*)'\s*\})/.exec(tag);
+        const typeVal = (type?.[1] ?? type?.[2] ?? type?.[3] ?? type?.[4] ?? "").toLowerCase();
+        // Hidden and submit inputs need no label; a search input with
+        // aria-label is already exempt above.
+        if (typeVal === "hidden" || typeVal === "submit") continue;
+        const id = /[\s:]id\s*=\s*(?:"([^"]+)"|'([^']+)'|\{\s*"([^"]+)"\s*\}|\{\s*'([^']+)'\s*\})/.exec(tag);
+        const idVal = id?.[1] ?? id?.[2] ?? id?.[3] ?? id?.[4];
+        if (idVal && labelledBy.has(idVal)) continue;
+        if (wrapped.some(([start, close]) => m.index > start && m.index < close)) continue;
+        hits.push(m.index);
+      }
+      return hits;
+    },
+  },
+  {
     id: "zoom-disabled",
     family: "accessibility",
     severity: "noticeable",

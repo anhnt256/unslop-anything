@@ -369,7 +369,7 @@ test("web slop is caught", () => {
   const found = new Set(scan([path.join(fixtures, "slop", "web")]).findings.map((f) => f.rule));
   for (const id of [
     "slop-gradient", "gradient-text", "tracked-caps-label", "unverified-claim", "img-no-alt", "decorative-pulse",
-    "clickable-div", "transition-all", "hover-scale", "icon-tile", "focus-removed", "zoom-disabled",
+    "clickable-div", "transition-all", "hover-scale", "icon-tile", "focus-removed", "zoom-disabled", "placeholder-label",
   ]) assert.ok(found.has(id), `missing ${id}`);
 });
 
@@ -418,6 +418,27 @@ test("an arrow function in an attribute does not end the tag for clickable-div a
   // Still reported when the attribute really is missing.
   assert.deepStrictEqual(rulesFor("<div onClick={() => go()}>x</div>\n"), ["clickable-div"]);
   assert.deepStrictEqual(rulesFor("<img src={src} onError={() => setBroken(true)} />\n"), ["img-no-alt"]);
+});
+
+test("placeholder-label flags inputs that use a placeholder as their only label", () => {
+  const rulesFor = (src) => scanSource(src, "a.tsx").map((f) => f.rule);
+  // The issue's repro.
+  assert.deepStrictEqual(rulesFor('<input type="email" placeholder="Email" />\n'), ["placeholder-label"]);
+  assert.deepStrictEqual(rulesFor('<textarea placeholder="Tell us more" />\n'), ["placeholder-label"]);
+  // A real label quiets it: aria-label, aria-labelledby, <label for>, wrapping <label>.
+  assert.deepStrictEqual(rulesFor('<input type="email" placeholder="Email" aria-label="Email" />\n'), []);
+  assert.deepStrictEqual(rulesFor('<input placeholder="Email" aria-labelledby="email-label" />\n'), []);
+  assert.deepStrictEqual(rulesFor('<label htmlFor="email">Email</label>\n<input id="email" placeholder="Email" />\n'), []);
+  assert.deepStrictEqual(rulesFor('<label>Email <input placeholder="Email" /></label>\n'), []);
+  // A label pointing at a different id does not save the field.
+  assert.deepStrictEqual(rulesFor('<label htmlFor="name">Name</label>\n<input id="email" placeholder="Email" />\n'), ["placeholder-label"]);
+  // No placeholder, no finding; hidden and submit inputs need no label.
+  assert.deepStrictEqual(rulesFor('<input type="email" />\n'), []);
+  assert.deepStrictEqual(rulesFor('<input type="hidden" placeholder="token" />\n'), []);
+  assert.deepStrictEqual(rulesFor('<input type="submit" placeholder="Send" />\n'), []);
+  assert.deepStrictEqual(rulesFor('<input type="search" placeholder="Search" aria-label="Search" />\n'), []);
+  // An arrow function in an attribute does not end the tag early.
+  assert.deepStrictEqual(rulesFor('<input placeholder="Email" onChange={() => setEmail(v)} />\n'), ["placeholder-label"]);
 });
 
 test("unverified-claim allows one adjective between the number and the noun", () => {
