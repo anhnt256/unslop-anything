@@ -997,7 +997,14 @@ function scan(targets, opts = {}) {
     }
   }
   findings.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || a.file.localeCompare(b.file) || a.line - b.line);
-  return { version: VERSION, filesScanned, unreadable, findings };
+  // A scan that read zero files is not a clean scan: a typo'd folder, an
+  // Objective-C/Java-only folder, or the wrong subdirectory would otherwise
+  // print a clean result and exit 0, reading as a pass in CI when nothing
+  // was checked. Flag it the same way unreadable files make a scan incomplete.
+  const message = filesScanned === 0
+    ? `No supported source files under ${targets.length ? targets.join(", ") : "."} (${Object.keys(STACK_BY_EXT).join(", ")}). The scan checked nothing.`
+    : undefined;
+  return { version: VERSION, filesScanned, unreadable, findings, ...(message ? { message } : {}) };
 }
 
 // ---------- output ----------
@@ -1006,7 +1013,9 @@ function formatText(result) {
   const { findings, filesScanned } = result;
   const out = [];
   if (findings.length === 0) {
-    out.push(`Dr. Unslopovich found nothing in ${filesScanned} files. Suspicious, but fine.`);
+    out.push(filesScanned === 0 && result.message
+      ? result.message
+      : `Dr. Unslopovich found nothing in ${filesScanned} files. Suspicious, but fine.`);
   } else {
     const count = (s) => findings.filter((f) => f.severity === s).length;
     const files = new Set(findings.map((f) => f.file)).size;
@@ -1111,6 +1120,10 @@ function main(argv) {
   console.log(json ? JSON.stringify(result, null, 2) : formatText(result));
   if (result.unreadable.length) {
     console.error(`Could not read ${result.unreadable.length} file(s): ${result.unreadable.join(", ")}. The scan is incomplete.`);
+    return 1;
+  }
+  if (result.filesScanned === 0) {
+    console.error(result.message);
     return 1;
   }
   return result.findings.length ? 2 : 0;

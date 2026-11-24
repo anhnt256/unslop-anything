@@ -365,6 +365,40 @@ test("an unreadable file makes the scan fail, not pass", () => {
   }
 });
 
+test("a scan that reads zero files fails instead of passing", () => {
+  const fs = require("fs");
+  const os = require("os");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "unslop-"));
+  // Objective-C / Java only: no supported source files under this folder.
+  fs.writeFileSync(path.join(root, "main.m"), "#import <Foundation/Foundation.h>\nint main() { return 0; }\n");
+  fs.writeFileSync(path.join(root, "App.java"), "public class App {}\n");
+  const err = console.error;
+  const log = console.log;
+  let errOut = "";
+  let out = "";
+  console.error = (s) => (errOut += s);
+  console.log = (s) => (out += s);
+  try {
+    const result = scan([root]);
+    assert.strictEqual(result.filesScanned, 0);
+    assert.match(result.message, /No supported source files under/);
+    assert.ok(result.message.includes(root));
+    assert.strictEqual(main([root]), 1);
+    assert.match(errOut, /No supported source files under/);
+    errOut = "";
+    out = "";
+    assert.strictEqual(main([root, "--json"]), 1);
+    const parsed = JSON.parse(out);
+    assert.strictEqual(parsed.filesScanned, 0);
+    assert.match(parsed.message, /No supported source files under/);
+    assert.ok(parsed.message.includes(".swift"));
+  } finally {
+    console.error = err;
+    console.log = log;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("web slop is caught", () => {
   const found = new Set(scan([path.join(fixtures, "slop", "web")]).findings.map((f) => f.rule));
   for (const id of [
