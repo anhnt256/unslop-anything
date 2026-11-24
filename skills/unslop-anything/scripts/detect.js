@@ -281,8 +281,11 @@ const rules = [
     message: "The project template's default color is still the theme.",
     fix: "Pick the brand's own accent and define semantic roles (background, surface, text, accent, destructive). Ask first if that purple has become the brand.",
     find({ code }) {
-      const re = /seedColor:\s*Colors\.deepPurple|0x[fF]{2}(?:6650[aA]4|[dD]0[bB][cC][fF][fF]|6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b|#(?:6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b/;
-      return [...matches(re, code)].map((m) => m.index);
+      const re = /seedColor:\s*Colors\.deepPurple|0x[fF]{2}(?:6650[aA]4|[dD]0[bB][cC][fF][fF]|6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC])\b|#(?:6200[eE][eE]|3700[bB]3|[bB][bB]86[fF][cC]|0[aA]7[eE][aA]4)\b|<HelloWave\b|<ParallaxScrollView\b/;
+      // One finding per file, like drawer-nav: the default tint and the
+      // starter-screen components are the same leftover.
+      const first = matches(re, code).next();
+      return first.done ? [] : [first.value.index];
     },
   },
   {
