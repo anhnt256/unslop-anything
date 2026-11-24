@@ -10,7 +10,7 @@ const rulesIn = (file) => new Set(scan([path.join(fixtures, "slop", file)]).find
 
 test("clean fixtures produce no findings", () => {
   const { findings, filesScanned } = scan([path.join(fixtures, "clean")]);
-  assert.strictEqual(filesScanned, 4);
+  assert.strictEqual(filesScanned, 5);
   assert.deepStrictEqual(findings, []);
 });
 
@@ -27,6 +27,13 @@ test("React Native slop is caught", () => {
 test("SwiftUI slop is caught", () => {
   const found = rulesIn("Dashboard.swift");
   for (const id of ["unvirtualized-list", "status-dot", "fixed-text-size", "slop-gradient", "glow-shadow", "back-gesture", "drawer-nav", "safe-area-off", "tracked-caps-label", "vague-button"]) {
+    assert.ok(found.has(id), `missing ${id}`);
+  }
+});
+
+test("UIKit slop is caught", () => {
+  const found = rulesIn("ViewController.swift");
+  for (const id of ["fixed-text-size", "back-gesture"]) {
     assert.ok(found.has(id), `missing ${id}`);
   }
 });
