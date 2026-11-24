@@ -807,7 +807,7 @@ const rules = [
           // <a onClick> is not focusable and is not announced as a control.
           // The one escape hatch is a button role with a tabIndex, which
           // makes it behave like a button for keyboard and screen readers.
-          if (/(?:^|[\s{])href\s*=/.test(tag)) continue;
+          if (/(?:^|[\s{:[])href\]?\s*=/.test(tag)) continue;
           if (/\brole\s*=\s*["'{]*button/.test(tag) && /\btab[iI]ndex\s*=/.test(tag)) continue;
         } else if (/\brole\s*=|\btab[iI]ndex\s*=/.test(tag)) continue;
         hits.push(m.index);

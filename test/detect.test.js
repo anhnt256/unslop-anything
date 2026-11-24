@@ -504,6 +504,7 @@ test("clickable-div flags a href-less anchor with onClick", () => {
   ].join("\n");
   const flagged = findingsFor(src).filter((f) => f.rule === "clickable-div").map((f) => f.line);
   assert.deepStrictEqual(flagged, [1, 2]);
+  assert.deepStrictEqual(scanSource('<a :href="url" @click="track">Docs</a>\n', "a.vue"), []);
   // A button role with a tabIndex is the one escape hatch for anchors...
   assert.deepStrictEqual(findingsFor('<a onClick={go} role="button" tabIndex={0}>Go</a>\n'), []);
   // ...but role alone or tabIndex alone does not excuse it.
