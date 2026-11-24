@@ -738,6 +738,7 @@ const rules = [
       for (const m of matches(/<(?:img|Image)(?=[\s/>])/, code)) {
         const end = tagEnd(code, m.index);
         const tag = code.slice(m.index, end === -1 ? undefined : end);
+        if (tag.startsWith("<Image") && !/\ssrc\s*=/.test(tag)) continue;
         if (!/[\s:]alt\s*=|\{\s*\.\.\./.test(tag)) hits.push(m.index);
       }
       return hits;

@@ -429,6 +429,7 @@ test("img-no-alt flags Next.js <Image> without alt, and ignores <ImageGallery>",
   assert.deepStrictEqual(rulesFor('<Image src="/a.png" {...props} />\n'), []);
   // A component that merely starts with the letters must not match.
   assert.deepStrictEqual(rulesFor("<ImageGallery items={items} />\n"), []);
+  assert.deepStrictEqual(rulesFor("<Image source={logo} accessibilityLabel=\"Logo\" />\n"), []);
 });
 
 test("unverified-claim allows one adjective between the number and the noun", () => {
