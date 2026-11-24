@@ -12,3 +12,13 @@ button {
 .card:hover {
   transform: scale(1.05);
 }
+
+.badge {
+  animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+  50% {
+    transform: translateY(-4px);
+  }
+}

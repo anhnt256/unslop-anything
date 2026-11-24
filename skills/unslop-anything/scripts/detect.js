@@ -676,6 +676,35 @@ const rules = [
     },
   },
   {
+    id: "reduced-motion",
+    family: "motion",
+    severity: "minor",
+    stacks: ["js", "web", "css"],
+    message: "Animation with no prefers-reduced-motion fallback (first use in this file).",
+    fix: "Add a @media (prefers-reduced-motion: reduce) fallback that stops the animation, or guard the class with a motion-reduce: variant.",
+    find({ code }) {
+      // Reported once per file, like transition-all: a missing fallback
+      // is usually a habit, not a one-off. A fallback anywhere in the
+      // file covers it, so the check is file-wide.
+      if (/prefers-reduced-motion/.test(code)) return [];
+      const hits = [];
+      // Plain CSS: the first @keyframes block or animation: declaration.
+      const css = matches(/@keyframes\b|\banimation\s*:/, code).next();
+      if (!css.done) hits.push(css.value.index);
+      // Tailwind: an animate-* class with no motion-safe: or
+      // motion-reduce: variant in the same class string. animate-spin is
+      // a spinner and animate-none turns motion off, so neither counts;
+      // skeleton pulses are loading states, like decorative-pulse.
+      for (const m of matches(/["'`][^"'`\n]*\banimate-(?:(?!spin\b)(?!none\b)[\w-]+|\[[^\s"'`\]]+\])[^"'`\n]*["'`]/, code)) {
+        if (/\bmotion-(?:safe|reduce):/.test(m[0])) continue;
+        if (/\banimate-pulse\b/.test(m[0]) && /\bbg-(?:gray|slate|zinc|neutral|stone|muted)\b|skeleton/i.test(m[0])) continue;
+        hits.push(m.index);
+        break;
+      }
+      return hits.length ? [Math.min(...hits)] : [];
+    },
+  },
+  {
     id: "unverified-claim",
     family: "truthfulness",
     severity: "noticeable",

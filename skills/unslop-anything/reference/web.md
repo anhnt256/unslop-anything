@@ -23,7 +23,7 @@ These break the web for real people. They are Critical or Noticeable, whatever t
 - **Text alternatives.** Every content image has alt text; decoration has `alt=""` [`img-no-alt`].
 - **URLs mean something.** The back button returns to the previous view. Filters, tabs, search, and pagination that someone would share live in the URL. Opening in a new tab works.
 - **Contrast** 4.5:1 for body text and 3:1 for large text and meaningful icons, in light and dark.
-- **Reduced motion.** Every animation has a `prefers-reduced-motion: reduce` fallback. Content is visible without it.
+- **Reduced motion.** Every animation has a `prefers-reduced-motion: reduce` fallback. Content is visible without it [`reduced-motion`].
 - **No horizontal scroll** at 375 wide, and the layout holds at 1920: the content width is capped and centered, the gutters grow.
 - **Forms** have labels (not placeholders as labels), the right `type` and `autocomplete`, errors next to the field in words, and the entered data kept after an error.
 - **Nothing invented.** No customer counts, logo walls, testimonials, ratings, or case studies the user did not supply [`unverified-claim`, `invented-stat`].

@@ -245,6 +245,31 @@ test("transition-all stops at the quote that ends a CSS-in-JS value", () => {
   assert.deepStrictEqual(scanSource(singleQuoted, "a.tsx").map((f) => f.rule), ["transition-all"]);
 });
 
+test("reduced-motion flags animations with no prefers-reduced-motion fallback (issue #72)", () => {
+  // The issue's exact repro: a @keyframes animation with no fallback.
+  const repro = ".badge { animation: bounce 1s infinite; }\n@keyframes bounce { 50% { transform: translateY(-4px); } }\n";
+  assert.deepStrictEqual(scanSource(repro, "a.css").map((f) => f.rule), ["reduced-motion"]);
+  // Reported once per file: the @keyframes block is not a second finding.
+  assert.strictEqual(scanSource(repro, "a.css").length, 1);
+  // A @keyframes block on its own counts too.
+  assert.deepStrictEqual(scanSource("@keyframes fade { from { opacity: 0; } }\n", "a.css").map((f) => f.rule), ["reduced-motion"]);
+  // A prefers-reduced-motion fallback anywhere in the file silences it.
+  const guarded = "@media (prefers-reduced-motion: reduce) { .badge { animation: none; } }\n" + repro;
+  assert.deepStrictEqual(scanSource(guarded, "a.css"), []);
+  // Tailwind: an unguarded animate-* class counts.
+  assert.deepStrictEqual(scanSource('<div className="animate-bounce" />', "a.tsx").map((f) => f.rule), ["reduced-motion"]);
+  assert.deepStrictEqual(scanSource('<div className="animate-ping" />', "a.tsx").map((f) => f.rule), ["decorative-pulse", "reduced-motion"]);
+  // A motion-reduce: variant on the same element silences it.
+  assert.deepStrictEqual(scanSource('<div className="motion-reduce:animate-none animate-bounce" />', "a.tsx"), []);
+  // animate-spin is a spinner, and skeleton pulses are loading states.
+  assert.deepStrictEqual(scanSource('<div className="animate-spin" />', "a.tsx"), []);
+  assert.deepStrictEqual(scanSource('<div className="h-4 w-32 animate-pulse rounded bg-zinc-200" />', "a.tsx"), []);
+  // A non-skeleton pulse still counts (and still trips decorative-pulse).
+  assert.deepStrictEqual(scanSource('<span className="animate-pulse bg-emerald-400" />', "a.tsx").map((f) => f.rule), ["decorative-pulse", "reduced-motion"]);
+  // A plain transition is not an animation.
+  assert.deepStrictEqual(scanSource(".b { transition: color .2s; }\n", "a.css"), []);
+});
+
 test("slop-gradient reads Android #AARRGGBB colors", () => {
   const src = '<gradient android:startColor="#FF7C3AED" android:endColor="#FFEC4899"/>\n';
   assert.deepStrictEqual(scanSource(src, "bg.xml").map((f) => f.rule), ["slop-gradient"]);
@@ -369,7 +394,7 @@ test("web slop is caught", () => {
   const found = new Set(scan([path.join(fixtures, "slop", "web")]).findings.map((f) => f.rule));
   for (const id of [
     "slop-gradient", "gradient-text", "tracked-caps-label", "unverified-claim", "img-no-alt", "decorative-pulse",
-    "clickable-div", "transition-all", "hover-scale", "icon-tile", "focus-removed", "zoom-disabled",
+    "clickable-div", "transition-all", "hover-scale", "icon-tile", "focus-removed", "zoom-disabled", "reduced-motion",
   ]) assert.ok(found.has(id), `missing ${id}`);
 });
 
